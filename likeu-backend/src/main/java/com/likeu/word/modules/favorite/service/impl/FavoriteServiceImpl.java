@@ -1,6 +1,8 @@
 package com.likeu.word.modules.favorite.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.likeu.word.common.PageVO;
 import com.likeu.word.mapper.RootMapper;
 import com.likeu.word.mapper.UserFavRootMapper;
 import com.likeu.word.mapper.UserFavWordMapper;
@@ -85,18 +87,25 @@ public class FavoriteServiceImpl implements FavoriteService {
     }
 
     @Override
-    public List<WordEntity> listFavWords(Long userId) {
-        List<Long> wordIds = selectFavIds(
-                userFavWordMapper.selectList(
-                        new LambdaQueryWrapper<UserFavWordEntity>()
-                                .eq(UserFavWordEntity::getUserId, userId)
-                                .orderByDesc(UserFavWordEntity::getId)),
-                UserFavWordEntity::getWordId);
-        if (wordIds.isEmpty()) return new ArrayList<>();
+    public PageVO<WordEntity> listFavWords(Long userId, Integer page, Integer size) {
+        // 先对收藏记录分页，再批量取单词，避免把全部收藏记录与单词都加载进内存
+        Page<UserFavWordEntity> pageParam = new Page<>(
+                PageVO.normalizePage(page), PageVO.normalizeSize(size));
+        Page<UserFavWordEntity> favPage = userFavWordMapper.selectPage(pageParam,
+                new LambdaQueryWrapper<UserFavWordEntity>()
+                        .eq(UserFavWordEntity::getUserId, userId)
+                        .orderByDesc(UserFavWordEntity::getId));
+
+        List<Long> wordIds = selectFavIds(favPage.getRecords(), UserFavWordEntity::getWordId);
+        if (wordIds.isEmpty()) {
+            return PageVO.of(new ArrayList<>(), favPage.getTotal(),
+                    favPage.getCurrent(), favPage.getSize());
+        }
 
         Map<Long, WordEntity> wordMap = wordMapper.selectBatchIds(wordIds).stream()
                 .collect(Collectors.toMap(WordEntity::getId, Function.identity()));
-        return sortByIds(wordIds, wordMap);
+        return PageVO.of(sortByIds(wordIds, wordMap), favPage.getTotal(),
+                favPage.getCurrent(), favPage.getSize());
     }
 
     // ==================== 词根收藏 ====================
@@ -144,18 +153,25 @@ public class FavoriteServiceImpl implements FavoriteService {
     }
 
     @Override
-    public List<RootEntity> listFavRoots(Long userId) {
-        List<Long> rootIds = selectFavIds(
-                userFavRootMapper.selectList(
-                        new LambdaQueryWrapper<UserFavRootEntity>()
-                                .eq(UserFavRootEntity::getUserId, userId)
-                                .orderByDesc(UserFavRootEntity::getId)),
-                UserFavRootEntity::getRootId);
-        if (rootIds.isEmpty()) return new ArrayList<>();
+    public PageVO<RootEntity> listFavRoots(Long userId, Integer page, Integer size) {
+        // 先对收藏记录分页，再批量取词根
+        Page<UserFavRootEntity> pageParam = new Page<>(
+                PageVO.normalizePage(page), PageVO.normalizeSize(size));
+        Page<UserFavRootEntity> favPage = userFavRootMapper.selectPage(pageParam,
+                new LambdaQueryWrapper<UserFavRootEntity>()
+                        .eq(UserFavRootEntity::getUserId, userId)
+                        .orderByDesc(UserFavRootEntity::getId));
+
+        List<Long> rootIds = selectFavIds(favPage.getRecords(), UserFavRootEntity::getRootId);
+        if (rootIds.isEmpty()) {
+            return PageVO.of(new ArrayList<>(), favPage.getTotal(),
+                    favPage.getCurrent(), favPage.getSize());
+        }
 
         Map<Long, RootEntity> rootMap = rootMapper.selectBatchIds(rootIds).stream()
                 .collect(Collectors.toMap(RootEntity::getId, Function.identity()));
-        return sortByIds(rootIds, rootMap);
+        return PageVO.of(sortByIds(rootIds, rootMap), favPage.getTotal(),
+                favPage.getCurrent(), favPage.getSize());
     }
 
     /**

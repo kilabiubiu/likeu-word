@@ -1,14 +1,15 @@
 -- ============================================
 -- LikeU 词根背单词 - 演示数据初始化SQL
 -- 1本词书 + 50个常见词根 + 60个单词 + 关联关系
+-- MySQL 专用，使用 INSERT IGNORE / 先删后插，可重复执行
 -- ============================================
 
 -- ========== 1. 词书 ==========
-INSERT INTO `t_word_book` (`id`, `name`, `description`, `word_count`, `sort_order`)
+INSERT IGNORE INTO `t_word_book` (`id`, `name`, `description`, `word_count`, `sort_order`)
 VALUES (1, 'CET-4 高频词根词缀', '精选含有常见词根词缀的CET-4核心词汇，边学单词边记词根', 60, 1);
 
 -- ========== 2. 词根词缀 ==========
-INSERT INTO `t_root` (`id`, `type`, `root`, `meaning`, `origin`, `example`) VALUES
+INSERT IGNORE INTO `t_root` (`id`, `type`, `root`, `meaning`, `origin`, `example`) VALUES
 (1, 2, 'dict', '说，断言', '拉丁语', 'predict, dictate, dictionary, contradict'),
 (2, 2, 'port', '搬运，携带', '拉丁语', 'export, import, transport, portable'),
 (3, 2, 'ject', '投掷，扔', '拉丁语', 'project, inject, reject, subject'),
@@ -60,9 +61,8 @@ INSERT INTO `t_root` (`id`, `type`, `root`, `meaning`, `origin`, `example`) VALU
 (49, 2, 'solv/solu', '解开，解决', '拉丁语', 'solve, solution, resolve, dissolve'),
 (50, 2, 'tend/tens', '伸展，趋向', '拉丁语', 'extend, intention, attention, tension');
 
--- ========== 3. 单词数据 ==========
--- 词书ID=1, sort_order按顺序递增
-INSERT INTO `t_word` (`id`, `word_book_id`, `word`, `phonetic_uk`, `phonetic_us`, `meaning_cn`, `example_en`, `example_cn`, `sort_order`) VALUES
+-- -- ========== 3. 单词数据 ==========
+INSERT IGNORE INTO `t_word` (`id`, `word_book_id`, `word`, `phonetic_uk`, `phonetic_us`, `meaning_cn`, `example_en`, `example_cn`, `sort_order`) VALUES
 
 -- 词根 dict 相关
 (1, 1, 'predict', '/prɪˈdɪkt/', '/prɪˈdɪkt/', '预测，预言', 'Scientists predict that the weather will get warmer.', '科学家预测天气会变得更暖和。', 1),
@@ -157,6 +157,8 @@ INSERT INTO `t_word` (`id`, `word_book_id`, `word`, `phonetic_uk`, `phonetic_us`
 (60, 1, 'attention', '/əˈtenʃn/', '/əˈtenʃn/', '注意力，关注', 'Please pay attention to the details.', '请注意细节。', 60);
 
 -- ========== 4. 单词-词根关联 ==========
+-- 关联表无唯一键，先清理演示单词的旧关联再重建，保证脚本可重复执行
+DELETE FROM `t_word_root` WHERE `word_id` BETWEEN 1 AND 60;
 -- 关联表的插入顺序: (word_id, root_id, position)
 -- dict (root_id=1)
 INSERT INTO `t_word_root` (`word_id`, `root_id`, `position`) VALUES

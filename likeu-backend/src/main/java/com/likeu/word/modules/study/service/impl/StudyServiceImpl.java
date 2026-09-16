@@ -1,6 +1,7 @@
 package com.likeu.word.modules.study.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.likeu.word.common.exception.BusinessException;
 import com.likeu.word.mapper.*;
 import com.likeu.word.modules.study.dto.StudySubmitDTO;
@@ -85,18 +86,20 @@ public class StudyServiceImpl implements StudyService {
             wrapper.notIn(WordEntity::getId, learnedWordIds);
         }
 
-        // 4. 限制每日新词上限
+        // 4. 限制每日新词上限（由 SQL LIMIT 限制，避免全量加载后再截断）
         int limit = user.getDailyNew() != null ? user.getDailyNew() : DEFAULT_NEW_LIMIT;
-        List<WordEntity> words = wordMapper.selectList(wrapper);
-        if (words.size() > limit) {
-            words = words.subList(0, limit);
+        Page<WordEntity> page = new Page<>(1, limit);
+        page.setSearchCount(false);
+        List<WordEntity> words = wordMapper.selectPage(page, wrapper).getRecords();
+        if (words.isEmpty()) {
+            return new ArrayList<>();
         }
 
-        // 5. 转换为VO（含词根解拆）
-        return words.stream()
-                .map(w -> wordService.getById(w.getId()))
-                .filter(Objects::nonNull)
+        // 5. 批量转换为VO（含词根拆解），避免逐个单词查询
+        List<Long> wordIds = words.stream()
+                .map(WordEntity::getId)
                 .collect(Collectors.toList());
+        return wordService.getByIds(wordIds);
     }
 
     @Override
@@ -141,29 +144,30 @@ public class StudyServiceImpl implements StudyService {
 
     @Override
     public List<WordDetailVO> getReviewWords(Long userId) {
-        // 1. 查询到期待复习记录
+        // 1. 限制每日复习上限（由 SQL LIMIT 限制，避免全量加载后再截断）
+        UserEntity user = userMapper.selectById(userId);
+        int limit = user.getDailyReview() != null ? user.getDailyReview() : DEFAULT_REVIEW_LIMIT;
+
+        // 2. 查询到期待复习记录
         Date now = new Date();
-        List<UserWordEntity> dueRecords = userWordMapper.selectList(
+        Page<UserWordEntity> page = new Page<>(1, limit);
+        page.setSearchCount(false);
+        List<UserWordEntity> dueRecords = userWordMapper.selectPage(page,
                 new LambdaQueryWrapper<UserWordEntity>()
                         .eq(UserWordEntity::getUserId, userId)
                         .eq(UserWordEntity::getStatus, 1) // 学习中
                         .le(UserWordEntity::getDueTime, now)
-                        .orderByAsc(UserWordEntity::getDueTime));
+                        .orderByAsc(UserWordEntity::getDueTime)).getRecords();
 
-        if (dueRecords.isEmpty()) return new ArrayList<>();
-
-        // 2. 限制每日复习上限
-        UserEntity user = userMapper.selectById(userId);
-        int limit = user.getDailyReview() != null ? user.getDailyReview() : DEFAULT_REVIEW_LIMIT;
-        if (dueRecords.size() > limit) {
-            dueRecords = dueRecords.subList(0, limit);
+        if (dueRecords.isEmpty()) {
+            return new ArrayList<>();
         }
 
-        // 3. 查询单词详情
-        return dueRecords.stream()
-                .map(r -> wordService.getById(r.getWordId()))
-                .filter(Objects::nonNull)
+        // 3. 批量查询单词详情，避免逐个单词查询
+        List<Long> wordIds = dueRecords.stream()
+                .map(UserWordEntity::getWordId)
                 .collect(Collectors.toList());
+        return wordService.getByIds(wordIds);
     }
 
     @Override

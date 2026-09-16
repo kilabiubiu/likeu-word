@@ -1,5 +1,6 @@
 package com.likeu.word.modules.root.controller;
 
+import com.likeu.word.common.PageVO;
 import com.likeu.word.common.Result;
 import com.likeu.word.modules.root.entity.RootEntity;
 import com.likeu.word.modules.root.service.RootService;
@@ -23,11 +24,13 @@ public class RootController {
      * 词根列表（支持筛选和搜索）
      */
     @GetMapping("/list")
-    public Result<List<RootEntity>> list(
+    public Result<PageVO<RootEntity>> list(
             @RequestParam(required = false) Integer type,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
     ) {
-        return Result.success(rootService.list(type, keyword));
+        return Result.success(rootService.list(type, keyword, page, size));
     }
 
     /**

@@ -1,5 +1,6 @@
 -- ============================================
--- H2 内存数据库建表（MySQL 兼容模式）
+-- 建表脚本（MySQL 8 / H2 MySQL 兼容模式通用）
+-- 全部使用 CREATE TABLE IF NOT EXISTS，可重复执行
 -- ============================================
 
 -- 1. 用户表
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS t_user (
   update_time TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   deleted     TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 2. 词书表
 CREATE TABLE IF NOT EXISTS t_word_book (
@@ -29,9 +30,10 @@ CREATE TABLE IF NOT EXISTS t_word_book (
   update_time TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   deleted     TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 3. 单词表
+-- 注意：MySQL 不允许 TEXT 列带 DEFAULT，故 TEXT 列均允许 NULL（默认值为 NULL）
 CREATE TABLE IF NOT EXISTS t_word (
   id          BIGINT       NOT NULL AUTO_INCREMENT,
   word_book_id BIGINT      NOT NULL,
@@ -41,14 +43,14 @@ CREATE TABLE IF NOT EXISTS t_word (
   audio_uk    VARCHAR(512) DEFAULT '',
   audio_us    VARCHAR(512) DEFAULT '',
   meaning_cn  TEXT         NOT NULL,
-  example_en  TEXT         DEFAULT '',
-  example_cn  TEXT         DEFAULT '',
+  example_en  TEXT         NULL,
+  example_cn  TEXT         NULL,
   sort_order  INT          NOT NULL DEFAULT 0,
   create_time TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   deleted     TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 4. 词根词缀表
 CREATE TABLE IF NOT EXISTS t_root (
@@ -63,7 +65,7 @@ CREATE TABLE IF NOT EXISTS t_root (
   update_time TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   deleted     TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 5. 单词-词根关联表
 CREATE TABLE IF NOT EXISTS t_word_root (
@@ -73,7 +75,7 @@ CREATE TABLE IF NOT EXISTS t_word_root (
   position    INT      NOT NULL DEFAULT 0,
   create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 6. 用户单词学习记录表
 CREATE TABLE IF NOT EXISTS t_user_word (
@@ -92,7 +94,7 @@ CREATE TABLE IF NOT EXISTS t_user_word (
   create_time    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 7. 用户收藏单词表
 CREATE TABLE IF NOT EXISTS t_user_fav_word (
@@ -101,7 +103,7 @@ CREATE TABLE IF NOT EXISTS t_user_fav_word (
   word_id     BIGINT   NOT NULL,
   create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 8. 用户收藏词根表
 CREATE TABLE IF NOT EXISTS t_user_fav_root (
@@ -110,7 +112,7 @@ CREATE TABLE IF NOT EXISTS t_user_fav_root (
   root_id     BIGINT   NOT NULL,
   create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- 9. 每日学习统计表
 CREATE TABLE IF NOT EXISTS t_user_daily (
@@ -122,4 +124,4 @@ CREATE TABLE IF NOT EXISTS t_user_daily (
   create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;

@@ -1,11 +1,20 @@
 const request = require('../../utils/request');
 
+const PAGE_SIZE = 20;
+
 Page({
   data: {
     activeTab: 0, // 0-单词 1-词根
     wordList: [],
+    wordTotal: 0,
+    wordPage: 1,
+    wordHasMore: false,
     rootList: [],
-    loading: true
+    rootTotal: 0,
+    rootPage: 1,
+    rootHasMore: false,
+    loading: true,
+    loadingMore: false
   },
 
   onLoad(options) {
@@ -19,23 +28,57 @@ Page({
     this.loadAll();
   },
 
+  // 触底加载当前 Tab 的下一页
+  onReachBottom() {
+    this.loadMore(this.data.activeTab === 0 ? 'word' : 'root');
+  },
+
   loadAll() {
     if (!getApp().isLogin()) {
-      this.setData({ loading: false, wordList: [], rootList: [] });
+      this.setData({
+        loading: false,
+        wordList: [], wordTotal: 0, wordHasMore: false,
+        rootList: [], rootTotal: 0, rootHasMore: false
+      });
       return;
     }
 
     this.setData({ loading: true });
     Promise.all([
-      request.get('/favorite/word/list').catch(() => []),
-      request.get('/favorite/root/list').catch(() => [])
-    ]).then(([wordList, rootList]) => {
-      this.setData({
-        wordList: wordList || [],
-        rootList: rootList || [],
-        loading: false
-      });
-    });
+      this.fetchPage('word', 1),
+      this.fetchPage('root', 1)
+    ]).then(() => this.setData({ loading: false }));
+  },
+
+  loadMore(type) {
+    if (this.data.loadingMore || !this.data[type + 'HasMore']) {
+      return;
+    }
+    this.setData({ loadingMore: true });
+    this.fetchPage(type, this.data[type + 'Page'] + 1)
+      .then(() => this.setData({ loadingMore: false }));
+  },
+
+  /**
+   * 拉取某一类的指定页
+   * @param {string} type word | root
+   * @param {number} page 页码，从 1 开始
+   */
+  fetchPage(type, page) {
+    const url = type === 'word' ? '/favorite/word/list' : '/favorite/root/list';
+    return request.get(url, { page, size: PAGE_SIZE })
+      .then(res => {
+        const records = (res && res.records) || [];
+        const total = (res && res.total) || 0;
+        const list = page === 1 ? records : this.data[type + 'List'].concat(records);
+        const data = {};
+        data[type + 'List'] = list;
+        data[type + 'Total'] = total;
+        data[type + 'Page'] = page;
+        data[type + 'HasMore'] = list.length < total;
+        this.setData(data);
+      })
+      .catch(() => {});
   },
 
   onTabChange(e) {
@@ -60,7 +103,7 @@ Page({
     request.delQuery('/favorite/word', { wordId })
       .then(() => {
         wx.showToast({ title: '已取消收藏', icon: 'success' });
-        this.loadAll();
+        this.fetchPage('word', 1);
       })
       .catch(() => {});
   },
@@ -71,7 +114,7 @@ Page({
     request.delQuery('/favorite/root', { rootId })
       .then(() => {
         wx.showToast({ title: '已取消收藏', icon: 'success' });
-        this.loadAll();
+        this.fetchPage('root', 1);
       })
       .catch(() => {});
   }

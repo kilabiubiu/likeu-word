@@ -1,7 +1,7 @@
 <view class="page-container">
   <van-tabs active="{{activeTab}}" bind:change="onTabChange" line-width="40rpx">
     <!-- 收藏单词 -->
-    <van-tab title="单词（{{wordList.length}}）">
+    <van-tab title="单词（{{wordTotal}}）">
       <view class="empty-container" wx:if="{{loading}}">
         <van-loading />
       </view>
@@ -27,13 +27,19 @@
             catchtap="removeWordFav"
           />
         </view>
+
+        <!-- 加载更多 -->
+        <view class="list-footer">
+          <van-loading size="20px" wx:if="{{loadingMore}}" />
+          <text class="list-footer-text" wx:elif="{{!wordHasMore}}">没有更多了</text>
+        </view>
       </view>
 
       <van-empty wx:elif="{{!loading}}" description="还没有收藏单词" />
     </van-tab>
 
     <!-- 收藏词根 -->
-    <van-tab title="词根（{{rootList.length}}）">
+    <van-tab title="词根（{{rootTotal}}）">
       <view class="empty-container" wx:if="{{loading}}">
         <van-loading />
       </view>
@@ -63,6 +69,12 @@
             data-id="{{item.id}}"
             catchtap="removeRootFav"
           />
+        </view>
+
+        <!-- 加载更多 -->
+        <view class="list-footer">
+          <van-loading size="20px" wx:if="{{loadingMore}}" />
+          <text class="list-footer-text" wx:elif="{{!rootHasMore}}">没有更多了</text>
         </view>
       </view>
 

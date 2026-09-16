@@ -7,7 +7,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.likeu.word.common.exception.BusinessException;
 import com.likeu.word.common.util.JwtUtil;
 import com.likeu.word.common.util.RedisUtil;
+import com.likeu.word.mapper.UserDailyMapper;
+import com.likeu.word.mapper.UserFavRootMapper;
+import com.likeu.word.mapper.UserFavWordMapper;
 import com.likeu.word.mapper.UserMapper;
+import com.likeu.word.mapper.UserWordMapper;
+import com.likeu.word.modules.favorite.entity.UserFavRootEntity;
+import com.likeu.word.modules.favorite.entity.UserFavWordEntity;
+import com.likeu.word.modules.study.entity.UserDailyEntity;
+import com.likeu.word.modules.study.entity.UserWordEntity;
 import com.likeu.word.modules.user.dto.LoginDTO;
 import com.likeu.word.modules.user.entity.UserEntity;
 import com.likeu.word.modules.user.service.UserService;
@@ -15,12 +23,10 @@ import com.likeu.word.modules.user.vo.LoginVO;
 import com.likeu.word.modules.user.vo.UserStatsVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
-import javax.sql.DataSource;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -47,18 +53,24 @@ public class UserServiceImpl implements UserService {
     private UserMapper userMapper;
 
     @Resource
+    private UserWordMapper userWordMapper;
+
+    @Resource
+    private UserDailyMapper userDailyMapper;
+
+    @Resource
+    private UserFavWordMapper userFavWordMapper;
+
+    @Resource
+    private UserFavRootMapper userFavRootMapper;
+
+    @Resource
     private JwtUtil jwtUtil;
 
     @Resource
     private RedisUtil redisUtil;
 
-    private final JdbcTemplate jdbcTemplate;
-
     private static final String WX_CODE_URL = "https://api.weixin.qq.com/sns/jscode2session";
-
-    public UserServiceImpl(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -107,34 +119,41 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserStatsVO getUserStats(Long userId) {
-        // 直接使用JDBC查询，避免跨模块编译问题，后续完善
-        Integer totalWords = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM t_user_word WHERE user_id = ?",
-                Integer.class, userId);
-        Integer masteredWords = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM t_user_word WHERE user_id = ? AND status = 2",
-                Integer.class, userId);
-        Integer favWords = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM t_user_fav_word WHERE user_id = ?",
-                Integer.class, userId);
-        Integer favRoots = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM t_user_fav_root WHERE user_id = ?",
-                Integer.class, userId);
-        return new UserStatsVO(
-                totalWords != null ? totalWords : 0,
-                masteredWords != null ? masteredWords : 0,
-                favWords != null ? favWords : 0,
-                favRoots != null ? favRoots : 0
-        );
+        int totalWords = countUserWords(userId, null);
+        int masteredWords = countUserWords(userId, 2);
+        int favWords = userFavWordMapper.selectCount(
+                new LambdaQueryWrapper<UserFavWordEntity>()
+                        .eq(UserFavWordEntity::getUserId, userId)).intValue();
+        int favRoots = userFavRootMapper.selectCount(
+                new LambdaQueryWrapper<UserFavRootEntity>()
+                        .eq(UserFavRootEntity::getUserId, userId)).intValue();
+        return new UserStatsVO(totalWords, masteredWords, favWords, favRoots);
+    }
+
+    /**
+     * 统计用户学习记录数
+     *
+     * @param status 学习状态，为 null 时统计全部
+     */
+    private int countUserWords(Long userId, Integer status) {
+        LambdaQueryWrapper<UserWordEntity> wrapper = new LambdaQueryWrapper<UserWordEntity>()
+                .eq(UserWordEntity::getUserId, userId);
+        if (status != null) {
+            wrapper.eq(UserWordEntity::getStatus, status);
+        }
+        return userWordMapper.selectCount(wrapper).intValue();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resetProgress(Long userId) {
-        // 删除用户学习记录
-        jdbcTemplate.update("DELETE FROM t_user_word WHERE user_id = ?", userId);
-        jdbcTemplate.update("DELETE FROM t_user_daily WHERE user_id = ?", userId);
-        // 删除收藏不清除，用户可自行决定
+        // 删除用户学习记录与每日统计（收藏不清除，用户可自行决定）
+        userWordMapper.delete(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId));
+        userDailyMapper.delete(
+                new LambdaQueryWrapper<UserDailyEntity>()
+                        .eq(UserDailyEntity::getUserId, userId));
         log.info("用户重置进度完成: userId={}", userId);
     }
 

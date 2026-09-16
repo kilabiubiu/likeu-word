@@ -1,5 +1,6 @@
 package com.likeu.word.modules.favorite.controller;
 
+import com.likeu.word.common.PageVO;
 import com.likeu.word.common.Result;
 import com.likeu.word.modules.favorite.service.FavoriteService;
 import com.likeu.word.modules.root.entity.RootEntity;
@@ -7,7 +8,6 @@ import com.likeu.word.modules.word.entity.WordEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import java.util.List;
 
 /**
  * 收藏 Controller
@@ -22,8 +22,11 @@ public class FavoriteController {
     // ========== 单词收藏 ==========
 
     @GetMapping("/word/list")
-    public Result<List<WordEntity>> wordFavList(@RequestAttribute Long userId) {
-        return Result.success(favoriteService.listFavWords(userId));
+    public Result<PageVO<WordEntity>> wordFavList(
+            @RequestAttribute Long userId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
+        return Result.success(favoriteService.listFavWords(userId, page, size));
     }
 
     @PostMapping("/word")
@@ -46,8 +49,11 @@ public class FavoriteController {
     // ========== 词根收藏 ==========
 
     @GetMapping("/root/list")
-    public Result<List<RootEntity>> rootFavList(@RequestAttribute Long userId) {
-        return Result.success(favoriteService.listFavRoots(userId));
+    public Result<PageVO<RootEntity>> rootFavList(
+            @RequestAttribute Long userId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
+        return Result.success(favoriteService.listFavRoots(userId, page, size));
     }
 
     @PostMapping("/root")

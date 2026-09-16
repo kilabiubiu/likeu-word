@@ -1,5 +1,6 @@
 package com.likeu.word.modules.root.service;
 
+import com.likeu.word.common.PageVO;
 import com.likeu.word.modules.root.entity.RootEntity;
 import com.likeu.word.modules.word.entity.WordEntity;
 
@@ -13,7 +14,7 @@ public interface RootService {
     /**
      * 列表查询（支持类型筛选和关键词搜索）
      */
-    List<RootEntity> list(Integer type, String keyword);
+    PageVO<RootEntity> list(Integer type, String keyword, Integer page, Integer size);
 
     /**
      * 获取词根详情

@@ -1,5 +1,6 @@
 package com.likeu.word.modules.word.controller;
 
+import com.likeu.word.common.PageVO;
 import com.likeu.word.common.Result;
 import com.likeu.word.modules.word.entity.WordEntity;
 import com.likeu.word.modules.word.service.WordService;
@@ -7,7 +8,6 @@ import com.likeu.word.modules.word.vo.WordDetailVO;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import java.util.List;
 
 /**
  * 单词 Controller
@@ -20,11 +20,15 @@ public class WordController {
     private WordService wordService;
 
     /**
-     * 根据词书ID获取单词列表
+     * 根据词书ID分页获取单词列表
      */
     @GetMapping("/list")
-    public Result<List<WordEntity>> getByBookId(@RequestParam Long bookId) {
-        return Result.success(wordService.getByBookId(bookId));
+    public Result<PageVO<WordEntity>> getByBookId(
+            @RequestParam Long bookId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size
+    ) {
+        return Result.success(wordService.getByBookId(bookId, page, size));
     }
 
     /**

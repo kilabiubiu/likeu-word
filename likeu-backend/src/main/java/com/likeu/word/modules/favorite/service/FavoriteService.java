@@ -1,9 +1,8 @@
 package com.likeu.word.modules.favorite.service;
 
+import com.likeu.word.common.PageVO;
 import com.likeu.word.modules.root.entity.RootEntity;
 import com.likeu.word.modules.word.entity.WordEntity;
-
-import java.util.List;
 
 /**
  * 收藏 Service 接口
@@ -33,9 +32,9 @@ public interface FavoriteService {
     int countWordFav(Long userId);
 
     /**
-     * 获取收藏单词列表（按收藏时间倒序）
+     * 分页获取收藏单词列表（按收藏时间倒序）
      */
-    List<WordEntity> listFavWords(Long userId);
+    PageVO<WordEntity> listFavWords(Long userId, Integer page, Integer size);
 
     // ========== 词根收藏 ==========
 
@@ -60,7 +59,7 @@ public interface FavoriteService {
     int countRootFav(Long userId);
 
     /**
-     * 获取收藏词根列表（按收藏时间倒序）
+     * 分页获取收藏词根列表（按收藏时间倒序）
      */
-    List<RootEntity> listFavRoots(Long userId);
+    PageVO<RootEntity> listFavRoots(Long userId, Integer page, Integer size);
 }

@@ -61,6 +61,12 @@
         <van-icon name="arrow" size="28rpx" color="#ccc" />
       </view>
     </view>
+
+    <!-- 加载更多 -->
+    <view class="list-footer">
+      <van-loading size="20px" wx:if="{{loadingMore}}" />
+      <text class="list-footer-text" wx:elif="{{!hasMore}}">没有更多了</text>
+    </view>
   </view>
 
   <!-- 空状态 -->

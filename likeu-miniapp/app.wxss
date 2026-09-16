@@ -95,3 +95,17 @@ page {
   color: var(--text-light);
   font-size: 28rpx;
 }
+
+/* 列表底部（加载更多 / 没有更多） */
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 0 40rpx;
+  min-height: 40rpx;
+}
+
+.list-footer-text {
+  font-size: 24rpx;
+  color: var(--text-light);
+}

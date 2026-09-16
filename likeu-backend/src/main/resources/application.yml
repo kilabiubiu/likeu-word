@@ -28,6 +28,15 @@ spring:
         min-idle: 0
         max-wait: 3000ms
 
+  # ============== 首次启动建表 / 演示数据 ==============
+  # schema.sql 使用 CREATE TABLE IF NOT EXISTS，演示数据使用 INSERT IGNORE + 先删后插，均可重复执行
+  # 数据库已自行维护时可设置环境变量 DB_INIT_MODE=never 关闭自动初始化
+  sql:
+    init:
+      mode: ${DB_INIT_MODE:always}
+      schema-locations: classpath:data/schema.sql
+      data-locations: classpath:data/init_demo_data.sql
+
   # ============== 文件上传（批量导入用） ==============
   servlet:
     multipart:
