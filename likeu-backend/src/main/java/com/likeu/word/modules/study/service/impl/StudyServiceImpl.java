@@ -1,0 +1,311 @@
+package com.likeu.word.modules.study.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.likeu.word.common.exception.BusinessException;
+import com.likeu.word.mapper.*;
+import com.likeu.word.modules.study.dto.StudySubmitDTO;
+import com.likeu.word.modules.study.entity.UserDailyEntity;
+import com.likeu.word.modules.study.entity.UserWordEntity;
+import com.likeu.word.modules.study.service.StudyService;
+import com.likeu.word.modules.study.vo.TodayStatsVO;
+import com.likeu.word.modules.user.entity.UserEntity;
+import com.likeu.word.modules.word.entity.WordEntity;
+import com.likeu.word.modules.word.entity.WordRootEntity;
+import com.likeu.word.modules.word.service.WordService;
+import com.likeu.word.modules.word.vo.WordDetailVO;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * 学习 Service 实现（含SM-2算法核心）
+ */
+@Slf4j
+@Service
+public class StudyServiceImpl implements StudyService {
+
+    @Resource
+    private UserWordMapper userWordMapper;
+
+    @Resource
+    private UserDailyMapper userDailyMapper;
+
+    @Resource
+    private WordMapper wordMapper;
+
+    @Resource
+    private WordRootMapper wordRootMapper;
+
+    @Resource
+    private RootMapper rootMapper;
+
+    @Resource
+    private UserMapper userMapper;
+
+    @Resource
+    private WordService wordService;
+
+    /** 默认每日新词上限 */
+    private static final int DEFAULT_NEW_LIMIT = 20;
+
+    /** 默认每日复习上限 */
+    private static final int DEFAULT_REVIEW_LIMIT = 50;
+
+    @Override
+    public List<WordDetailVO> getNewWords(Long userId) {
+        // 1. 获取用户当前词书
+        UserEntity user = userMapper.selectById(userId);
+        if (user == null || user.getWordBookId() == null) {
+            throw new BusinessException("请先选择词书");
+        }
+        Long bookId = user.getWordBookId();
+
+        // 2. 查询用户已学过的单词ID
+        List<Long> learnedWordIds = userWordMapper.selectList(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId)
+                        .select(UserWordEntity::getWordId))
+                .stream()
+                .map(UserWordEntity::getWordId)
+                .collect(Collectors.toList());
+
+        // 3. 查询词书中未学过的单词
+        LambdaQueryWrapper<WordEntity> wrapper = new LambdaQueryWrapper<WordEntity>()
+                .eq(WordEntity::getWordBookId, bookId)
+                .orderByAsc(WordEntity::getSortOrder);
+
+        if (!learnedWordIds.isEmpty()) {
+            wrapper.notIn(WordEntity::getId, learnedWordIds);
+        }
+
+        // 4. 限制每日新词上限
+        int limit = user.getDailyNew() != null ? user.getDailyNew() : DEFAULT_NEW_LIMIT;
+        List<WordEntity> words = wordMapper.selectList(wrapper);
+        if (words.size() > limit) {
+            words = words.subList(0, limit);
+        }
+
+        // 5. 转换为VO（含词根解拆）
+        return words.stream()
+                .map(w -> wordService.getById(w.getId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void submit(Long userId, StudySubmitDTO dto) {
+        Long wordId = dto.getWordId();
+        Integer quality = dto.getQuality();
+
+        // 1. 查找或创建学习记录
+        UserWordEntity record = userWordMapper.selectOne(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId)
+                        .eq(UserWordEntity::getWordId, wordId));
+
+        boolean isNew = (record == null);
+
+        if (record == null) {
+            record = new UserWordEntity();
+            record.setUserId(userId);
+            record.setWordId(wordId);
+            record.setStatus(1); // 学习中
+            record.setEaseFactor(2.5);
+            record.setIntervalDays(0);
+            record.setRepetitions(0);
+            record.setReviewCount(0);
+            record.setWrongCount(0);
+        }
+
+        // 2. SM-2算法计算
+        sm2Calculate(record, quality);
+
+        // 3. 保存记录
+        if (record.getId() == null) {
+            userWordMapper.insert(record);
+        } else {
+            userWordMapper.updateById(record);
+        }
+
+        // 4. 更新每日统计
+        updateDailyStats(userId, isNew);
+    }
+
+    @Override
+    public List<WordDetailVO> getReviewWords(Long userId) {
+        // 1. 查询到期待复习记录
+        Date now = new Date();
+        List<UserWordEntity> dueRecords = userWordMapper.selectList(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId)
+                        .eq(UserWordEntity::getStatus, 1) // 学习中
+                        .le(UserWordEntity::getDueTime, now)
+                        .orderByAsc(UserWordEntity::getDueTime));
+
+        if (dueRecords.isEmpty()) return new ArrayList<>();
+
+        // 2. 限制每日复习上限
+        UserEntity user = userMapper.selectById(userId);
+        int limit = user.getDailyReview() != null ? user.getDailyReview() : DEFAULT_REVIEW_LIMIT;
+        if (dueRecords.size() > limit) {
+            dueRecords = dueRecords.subList(0, limit);
+        }
+
+        // 3. 查询单词详情
+        return dueRecords.stream()
+                .map(r -> wordService.getById(r.getWordId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public TodayStatsVO getTodayStats(Long userId) {
+        // 查询今日统计
+        UserDailyEntity daily = userDailyMapper.selectOne(
+                new LambdaQueryWrapper<UserDailyEntity>()
+                        .eq(UserDailyEntity::getUserId, userId)
+                        .eq(UserDailyEntity::getStudyDate, LocalDate.now()));
+
+        int newCount = daily != null ? daily.getNewCount() : 0;
+        int reviewCount = daily != null ? daily.getReviewCount() : 0;
+
+        // 待复习数
+        Date now = new Date();
+        int dueCount = userWordMapper.selectCount(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId)
+                        .eq(UserWordEntity::getStatus, 1)
+                        .le(UserWordEntity::getDueTime, now)).intValue();
+
+        // 已掌握数
+        int masteredCount = userWordMapper.selectCount(
+                new LambdaQueryWrapper<UserWordEntity>()
+                        .eq(UserWordEntity::getUserId, userId)
+                        .eq(UserWordEntity::getStatus, 2)).intValue();
+
+        // 进度百分比（基于每日目标）
+        UserEntity user = userMapper.selectById(userId);
+        int newLimit = user.getDailyNew() != null ? user.getDailyNew() : DEFAULT_NEW_LIMIT;
+        int reviewLimit = user.getDailyReview() != null ? user.getDailyReview() : DEFAULT_REVIEW_LIMIT;
+        int totalTarget = newLimit + reviewLimit;
+        int totalDone = newCount + reviewCount;
+        int progress = totalTarget > 0 ? Math.min(100, totalDone * 100 / totalTarget) : 0;
+
+        return new TodayStatsVO(newCount, reviewCount, dueCount, masteredCount, progress);
+    }
+
+    // ==================== SM-2 核心算法 ====================
+
+    /**
+     * SM-2间隔重复算法
+     *
+     * @param record 学习记录（状态会被修改）
+     * @param quality 掌握度：1-不认识 3-模糊 5-认识
+     */
+    private void sm2Calculate(UserWordEntity record, int quality) {
+        double ef = record.getEaseFactor() != null ? record.getEaseFactor() : 2.5;
+        int reps = record.getRepetitions() != null ? record.getRepetitions() : 0;
+        int interval = record.getIntervalDays() != null ? record.getIntervalDays() : 0;
+
+        if (quality >= 3) {
+            // 回答正确：递增间隔
+            switch (reps) {
+                case 0:
+                    interval = 1;
+                    break;
+                case 1:
+                    interval = 6;
+                    break;
+                default:
+                    // reps >= 2: interval = interval * EF
+                    interval = (int) Math.ceil(interval * ef);
+                    break;
+            }
+            reps++;
+        } else {
+            // 回答错误：重置间隔
+            reps = 0;
+            // 不认识(q=1)当天重学，模糊(q=3)1天后复习
+            interval = (quality == 1) ? 0 : 1;
+        }
+
+        // 更新EF（难度因子）
+        double newEf = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+        // 限定EF范围 [1.3, 3.0]
+        newEf = Math.max(1.3, Math.min(3.0, newEf));
+
+        // 计算下次复习时间
+        Calendar cal = Calendar.getInstance();
+        if (interval > 0) {
+            cal.add(Calendar.DAY_OF_YEAR, interval);
+        } else {
+            // interval=0 表示当天需要重学，设到当天结束
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
+            cal.set(Calendar.SECOND, 59);
+        }
+        Date dueTime = cal.getTime();
+
+        // 更新记录
+        record.setQuality(quality);
+        record.setEaseFactor(newEf);
+        record.setIntervalDays(interval);
+        record.setRepetitions(reps);
+        record.setDueTime(dueTime);
+        record.setLastReviewTime(new Date());
+        record.setReviewCount(record.getReviewCount() != null ? record.getReviewCount() + 1 : 1);
+
+        if (quality < 3) {
+            record.setWrongCount(record.getWrongCount() != null ? record.getWrongCount() + 1 : 1);
+        }
+
+        // 判断是否掌握：连续正确次数 >= 5 且 EF >= 2.5
+        if (reps >= 5 && newEf >= 2.5) {
+            record.setStatus(2); // 已掌握
+        } else {
+            record.setStatus(1); // 学习中
+        }
+
+        log.debug("SM-2计算结果: wordId={}, quality={}, ef={}->{}, interval={}, reps={}, due={}",
+                record.getWordId(), quality, String.format("%.2f", ef), newEf, interval, reps, dueTime);
+    }
+
+    /**
+     * 更新每日学习统计
+     */
+    private void updateDailyStats(Long userId, boolean isNew) {
+        LocalDate today = LocalDate.now();
+        UserDailyEntity daily = userDailyMapper.selectOne(
+                new LambdaQueryWrapper<UserDailyEntity>()
+                        .eq(UserDailyEntity::getUserId, userId)
+                        .eq(UserDailyEntity::getStudyDate, today));
+
+        if (daily == null) {
+            daily = new UserDailyEntity();
+            daily.setUserId(userId);
+            daily.setStudyDate(today);
+            daily.setNewCount(0);
+            daily.setReviewCount(0);
+        }
+
+        if (isNew) {
+            daily.setNewCount(daily.getNewCount() + 1);
+        } else {
+            daily.setReviewCount(daily.getReviewCount() + 1);
+        }
+
+        if (daily.getId() == null) {
+            userDailyMapper.insert(daily);
+        } else {
+            userDailyMapper.updateById(daily);
+        }
+    }
+}

@@ -1,0 +1,87 @@
+/* 我的页面样式 */
+
+.user-card {
+  display: flex;
+  align-items: center;
+  padding: 40rpx 30rpx;
+  background: linear-gradient(135deg, #4A90D9, #6BA3E0);
+  color: #fff;
+}
+
+.user-avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4rpx solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.user-avatar.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.user-avatar image {
+  width: 100%;
+  height: 100%;
+}
+
+.user-info {
+  flex: 1;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.user-desc {
+  font-size: 24rpx;
+  opacity: 0.85;
+  margin-top: 6rpx;
+}
+
+/* 统计卡片 */
+.stats-card {
+  margin: 20rpx 30rpx;
+}
+
+.stats-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 20rpx;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--theme-color);
+}
+
+.stats-label {
+  font-size: 22rpx;
+  color: var(--text-light);
+  margin-top: 6rpx;
+}
+
+/* 退出 */
+.logout-section {
+  padding: 40rpx 30rpx;
+}

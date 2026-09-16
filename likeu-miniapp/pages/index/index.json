@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "LikeU词根记单词",
+  "usingComponents": {
+    "van-cell": "@vant/weapp/cell/index",
+    "van-cell-group": "@vant/weapp/cell-group/index",
+    "van-icon": "@vant/weapp/icon/index",
+    "van-button": "@vant/weapp/button/index",
+    "van-progress": "@vant/weapp/progress/index",
+    "van-toast": "@vant/weapp/toast/index"
+  }
+}

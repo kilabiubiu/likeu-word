@@ -1,0 +1,56 @@
+<view class="page-container">
+  <view class="empty-container" wx:if="{{loading}}">
+    <van-loading />
+  </view>
+
+  <view class="root-detail" wx:elif="{{root}}">
+    <!-- 词根头部 -->
+    <view class="root-header">
+      <view class="root-badge">
+        <van-tag
+          type="{{root.type === 1 ? 'primary' : root.type === 2 ? 'success' : 'warning'}}"
+        >
+          {{root.type === 1 ? '前缀' : root.type === 2 ? '词根' : '后缀'}}
+        </van-tag>
+      </view>
+      <text class="root-title">{{root.root}}</text>
+      <text class="root-meaning">{{root.meaning}}</text>
+      <text class="root-origin" wx:if="{{root.origin}}">来源：{{root.origin}}</text>
+      <view class="root-example" wx:if="{{root.example}}">
+        <text>例词：{{root.example}}</text>
+      </view>
+
+      <!-- 收藏按钮 -->
+      <view
+        class="fav-btn {{isFav ? 'active' : ''}}"
+        bindtap="toggleFav"
+      >
+        <van-icon name="{{isFav ? 'star' : 'star-o'}}" size="36rpx" />
+        <text>{{isFav ? '已收藏' : '收藏'}}</text>
+      </view>
+    </view>
+
+    <!-- 同源单词列表 -->
+    <view class="section-title">同源单词（{{wordList.length}}个）</view>
+
+    <view class="word-list">
+      <view
+        class="word-item"
+        wx:for="{{wordList}}"
+        wx:key="id"
+        data-wordid="{{item.id}}"
+        bindtap="goStudy"
+      >
+        <view class="word-item-left">
+          <text class="word-item-text">{{item.word}}</text>
+          <text class="word-item-meaning">{{item.meaningCn}}</text>
+        </view>
+        <van-icon name="arrow" size="28rpx" color="#ccc" />
+      </view>
+    </view>
+
+    <view class="empty-container" wx:if="{{wordList.length === 0}}">
+      <text style="color: var(--text-light);">暂无同源单词</text>
+    </view>
+  </view>
+</view>

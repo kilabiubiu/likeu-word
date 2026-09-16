@@ -1,0 +1,83 @@
+<view class="page-container">
+  <!-- 用户信息 -->
+  <view class="user-card" wx:if="{{userInfo}}">
+    <view class="user-avatar">
+      <image src="{{userInfo.avatarUrl || '/assets/images/default-avatar.png'}}" mode="aspectFill" />
+    </view>
+    <view class="user-info">
+      <text class="user-name">{{userInfo.nickName}}</text>
+      <text class="user-desc">已学习 {{totalStats.totalWords}} 个单词</text>
+    </view>
+  </view>
+
+  <view class="user-card" wx:else>
+    <view class="user-avatar empty">
+      <van-icon name="contact" size="60rpx" color="#ccc" />
+    </view>
+    <view class="user-info">
+      <text class="user-name">未登录</text>
+      <text class="user-desc">点击登录开始学习</text>
+    </view>
+    <van-button
+      type="primary"
+      size="small"
+      round
+      bindtap="handleLogin"
+    >登录</van-button>
+  </view>
+
+  <!-- 学习统计 -->
+  <view class="card stats-card">
+    <view class="stats-title">学习统计</view>
+    <view class="stats-row">
+      <view class="stats-item">
+        <text class="stats-num">{{totalStats.totalWords}}</text>
+        <text class="stats-label">学习总词</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{totalStats.masteredWords}}</text>
+        <text class="stats-label">已掌握</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{totalStats.favWords}}</text>
+        <text class="stats-label">收藏单词</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{totalStats.favRoots}}</text>
+        <text class="stats-label">收藏词根</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 功能列表 -->
+  <van-cell-group>
+    <van-cell
+      title="收藏单词"
+      icon="star-o"
+      is-link
+      bindtap="goFavWords"
+    />
+    <van-cell
+      title="收藏词根"
+      icon="star-o"
+      is-link
+      bindtap="goFavRoots"
+    />
+    <van-cell
+      title="重置学习进度"
+      icon="replay"
+      is-link
+      bindtap="resetProgress"
+    />
+  </van-cell-group>
+
+  <!-- 退出登录 -->
+  <view class="logout-section" wx:if="{{userInfo}}">
+    <van-button
+      type="default"
+      round
+      block
+      bindtap="logout"
+    >退出登录</van-button>
+  </view>
+</view>

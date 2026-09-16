@@ -1,0 +1,72 @@
+<view class="page-container">
+  <van-tabs active="{{activeTab}}" bind:change="onTabChange" line-width="40rpx">
+    <!-- 收藏单词 -->
+    <van-tab title="单词（{{wordList.length}}）">
+      <view class="empty-container" wx:if="{{loading}}">
+        <van-loading />
+      </view>
+
+      <view class="fav-list" wx:elif="{{wordList.length > 0}}">
+        <view
+          class="fav-item"
+          wx:for="{{wordList}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="goWord"
+        >
+          <view class="fav-item-left">
+            <text class="fav-item-text">{{item.word}}</text>
+            <text class="fav-item-sub" wx:if="{{item.phoneticUk}}">{{item.phoneticUk}}</text>
+          </view>
+          <text class="fav-item-meaning text-ellipsis">{{item.meaningCn}}</text>
+          <van-icon
+            name="delete-o"
+            size="40rpx"
+            color="#ccc"
+            data-id="{{item.id}}"
+            catchtap="removeWordFav"
+          />
+        </view>
+      </view>
+
+      <van-empty wx:elif="{{!loading}}" description="还没有收藏单词" />
+    </van-tab>
+
+    <!-- 收藏词根 -->
+    <van-tab title="词根（{{rootList.length}}）">
+      <view class="empty-container" wx:if="{{loading}}">
+        <van-loading />
+      </view>
+
+      <view class="fav-list" wx:elif="{{rootList.length > 0}}">
+        <view
+          class="fav-item"
+          wx:for="{{rootList}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="goRoot"
+        >
+          <view class="fav-item-left">
+            <text class="fav-item-text">{{item.root}}</text>
+            <text class="fav-item-sub">{{item.meaning}}</text>
+          </view>
+          <van-tag
+            type="{{item.type === 1 ? 'primary' : item.type === 2 ? 'success' : 'warning'}}"
+            size="small"
+          >
+            {{item.type === 1 ? '前缀' : item.type === 2 ? '词根' : '后缀'}}
+          </van-tag>
+          <van-icon
+            name="delete-o"
+            size="40rpx"
+            color="#ccc"
+            data-id="{{item.id}}"
+            catchtap="removeRootFav"
+          />
+        </view>
+      </view>
+
+      <van-empty wx:elif="{{!loading}}" description="还没有收藏词根" />
+    </van-tab>
+  </van-tabs>
+</view>

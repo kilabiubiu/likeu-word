@@ -1,0 +1,66 @@
+/* 词根列表页样式 */
+
+.filter-tabs {
+  display: flex;
+  padding: 10rpx 30rpx;
+  gap: 16rpx;
+  background: var(--card-bg);
+  border-bottom: 2rpx solid var(--border-color);
+}
+
+.filter-tab {
+  padding: 12rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  border-radius: 30rpx;
+  cursor: pointer;
+}
+
+.filter-tab.active {
+  background: var(--theme-light);
+  color: var(--theme-color);
+  font-weight: 500;
+}
+
+.root-list {
+  padding: 0 30rpx;
+}
+
+.root-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card-bg);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  cursor: pointer;
+}
+
+.root-item-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.root-item-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.root-item-meaning {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}
+
+.root-item-right {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.root-item-hot {
+  font-size: 22rpx;
+  color: var(--text-light);
+}

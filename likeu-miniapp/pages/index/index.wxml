@@ -1,0 +1,89 @@
+<view class="page-container">
+  <!-- 用户信息/登录入口 -->
+  <view class="user-header {{userInfo ? 'logged' : ''}}">
+    <view class="user-avatar">
+      <image src="{{userInfo.avatarUrl || '/assets/images/default-avatar.png'}}" mode="aspectFill" />
+    </view>
+    <view class="user-info">
+      <text class="user-name">{{userInfo.nickName || '点击登录'}}</text>
+      <text class="user-desc" wx:if="{{userInfo}}">今日已学 {{todayStats.newCount}} 词</text>
+    </view>
+    <view class="user-login-btn" wx:if="{{!userInfo}}" bindtap="handleLogin">
+      <van-icon name="arrow" size="36rpx" color="#999" />
+    </view>
+  </view>
+
+  <!-- 今日统计卡片 -->
+  <view class="card stats-card">
+    <view class="stats-title">今日学习</view>
+    <view class="stats-row">
+      <view class="stats-item">
+        <text class="stats-num">{{todayStats.newCount}}</text>
+        <text class="stats-label">新学</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{todayStats.reviewCount}}</text>
+        <text class="stats-label">复习</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{todayStats.dueCount}}</text>
+        <text class="stats-label">待复习</text>
+      </view>
+      <view class="stats-item">
+        <text class="stats-num">{{todayStats.masteredCount}}</text>
+        <text class="stats-label">已掌握</text>
+      </view>
+    </view>
+    <view class="stats-progress">
+      <text class="progress-label">今日进度</text>
+      <van-progress
+        percentage="{{todayStats.progress}}"
+        stroke-width="8"
+        color="#4A90D9"
+        track-color="#E8F0FE"
+      />
+    </view>
+  </view>
+
+  <!-- 当前词书 -->
+  <view class="card book-card" bindtap="switchBook">
+    <view class="book-header">
+      <text class="book-label">当前词书</text>
+      <van-icon name="arrow" size="28rpx" color="#999" />
+    </view>
+    <text class="book-name">{{currentBook.name || '选择词书'}}</text>
+    <text class="book-desc">{{currentBook.description || '请选择要学习的词书'}}</text>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-section">
+    <view
+      class="action-btn learn-btn"
+      bindtap="startLearning"
+      wx:if="{{!userInfo || !currentBook}}"
+    >
+      <text class="action-icon">📖</text>
+      <text class="action-text">请先登录并选择词书</text>
+    </view>
+
+    <view
+      class="action-btn learn-btn"
+      bindtap="startLearning"
+      wx:if="{{userInfo && currentBook}}"
+    >
+      <text class="action-icon">📖</text>
+      <text class="action-text">开始学习新词</text>
+      <text class="action-sub">学习 {{dailyNewLimit}} 个新词</text>
+    </view>
+
+    <view
+      class="action-btn review-btn {{todayStats.dueCount > 0 ? '' : 'disabled'}}"
+      bindtap="startReview"
+      wx:if="{{userInfo}}"
+    >
+      <text class="action-icon">🔄</text>
+      <text class="action-text">复习单词</text>
+      <text class="action-sub">{{todayStats.dueCount > 0 ? '今日 ' + todayStats.dueCount + ' 词待复习' : '今日暂无待复习'}}</text>
+    </view>
+  </view>
+</view>

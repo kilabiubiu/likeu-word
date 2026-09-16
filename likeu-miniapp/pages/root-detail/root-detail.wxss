@@ -1,0 +1,98 @@
+/* 词根详情页样式 */
+
+.root-header {
+  background: var(--card-bg);
+  margin: 20rpx 30rpx;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.root-badge {
+  margin-bottom: 16rpx;
+}
+
+.root-title {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12rpx;
+}
+
+.root-meaning {
+  font-size: 34rpx;
+  color: var(--theme-color);
+  font-weight: 500;
+  margin-bottom: 12rpx;
+}
+
+.root-origin {
+  font-size: 24rpx;
+  color: var(--text-light);
+  margin-bottom: 12rpx;
+}
+
+.root-example {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  background: #f9f9f9;
+  padding: 16rpx 24rpx;
+  border-radius: 12rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 24rpx;
+  padding: 12rpx 36rpx;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  background: #f5f5f5;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.fav-btn.active {
+  background: #FFF7E8;
+  color: #E6A23C;
+}
+
+/* 单词列表 */
+.word-list {
+  margin: 0 30rpx;
+}
+
+.word-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card-bg);
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 12rpx;
+  cursor: pointer;
+}
+
+.word-item-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.word-item-text {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.word-item-meaning {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}

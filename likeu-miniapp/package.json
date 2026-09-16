@@ -1,0 +1,9 @@
+{
+  "name": "likeu-miniapp",
+  "version": "1.0.0",
+  "description": "LikeU词根背单词小程序",
+  "main": "app.js",
+  "dependencies": {
+    "@vant/weapp": "^1.11.0"
+  }
+}

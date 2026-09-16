@@ -1,0 +1,68 @@
+<view class="page-container">
+  <!-- 搜索栏 -->
+  <van-search
+    value="{{keyword}}"
+    placeholder="搜索词根/词缀..."
+    use-action-slot="{{false}}"
+    bind:search="onSearch"
+    bind:clear="onClear"
+  />
+
+  <!-- 分类标签 -->
+  <view class="filter-tabs">
+    <view
+      class="filter-tab {{filterType === 0 ? 'active' : ''}}"
+      data-type="0"
+      bindtap="switchFilter"
+    >全部</view>
+    <view
+      class="filter-tab {{filterType === 1 ? 'active' : ''}}"
+      data-type="1"
+      bindtap="switchFilter"
+    >前缀</view>
+    <view
+      class="filter-tab {{filterType === 2 ? 'active' : ''}}"
+      data-type="2"
+      bindtap="switchFilter"
+    >词根</view>
+    <view
+      class="filter-tab {{filterType === 3 ? 'active' : ''}}"
+      data-type="3"
+      bindtap="switchFilter"
+    >后缀</view>
+  </view>
+
+  <!-- 加载 -->
+  <view class="empty-container" wx:if="{{loading}}">
+    <van-loading />
+  </view>
+
+  <!-- 列表 -->
+  <view class="root-list" wx:elif="{{rootList.length > 0}}">
+    <view
+      class="root-item"
+      wx:for="{{rootList}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="goDetail"
+    >
+      <view class="root-item-left">
+        <text class="root-item-text">{{item.root}}</text>
+        <text class="root-item-meaning">{{item.meaning}}</text>
+      </view>
+      <view class="root-item-right">
+        <van-tag
+          type="{{item.type === 1 ? 'primary' : item.type === 2 ? 'success' : 'warning'}}"
+          size="small"
+        >
+          {{item.type === 1 ? '前缀' : item.type === 2 ? '词根' : '后缀'}}
+        </van-tag>
+        <text class="root-item-hot">🔥 {{item.hot}}</text>
+        <van-icon name="arrow" size="28rpx" color="#ccc" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <van-empty wx:elif="{{!loading && rootList.length === 0}}" description="暂无词根数据" />
+</view>

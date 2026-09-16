@@ -1,0 +1,88 @@
+<view class="page-container">
+  <!-- 顶部进度 -->
+  <view class="progress-header" wx:if="{{mode === 'deck'}}">
+    <text class="progress-text">{{currentIndex + 1}} / {{wordList.length}}</text>
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{(currentIndex + 1) / wordList.length * 100}}%"></view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="empty-container" wx:if="{{loading}}">
+    <van-loading />
+    <text style="margin-top: 20rpx;">加载中...</text>
+  </view>
+
+  <!-- 单词卡片 -->
+  <view class="card-container" wx:if="{{!loading && currentWord}}">
+    <view
+      class="word-card {{isFlipped ? 'flipped' : ''}}"
+      bindtap="flipCard"
+    >
+      <view class="card-inner">
+        <!-- 正面：单词 + 音标 -->
+        <view class="card-front">
+          <text class="word-text">{{currentWord.word}}</text>
+          <text class="word-phonetic" wx:if="{{currentWord.phoneticUk}}">
+            {{currentWord.phoneticUk}}
+          </text>
+          <text class="flip-hint">轻触卡片翻转查看释义</text>
+        </view>
+
+        <!-- 背面：释义 + 例句 + 词根拆解 -->
+        <view class="card-back">
+          <scroll-view scroll-y class="card-back-scroll">
+            <text class="word-text-back">{{currentWord.word}}</text>
+            <text class="word-phonetic-back" wx:if="{{currentWord.phoneticUk}}">{{currentWord.phoneticUk}}</text>
+            <text class="word-meaning">{{currentWord.meaningCn}}</text>
+
+            <!-- 词根词缀拆解块 -->
+            <view class="root-section" wx:if="{{currentWord.roots && currentWord.roots.length > 0}}">
+              <view class="root-section-title">词根拆解</view>
+              <view class="root-chips">
+                <view
+                  class="root-chip"
+                  wx:for="{{currentWord.roots}}"
+                  wx:key="id"
+                  data-root="{{item}}"
+                  bindtap="goRootDetail"
+                >
+                  <text class="root-chip-text">{{item.root}}</text>
+                  <text class="root-chip-meaning">{{item.meaning}}</text>
+                </view>
+              </view>
+            </view>
+
+            <!-- 例句 -->
+            <view class="example-section" wx:if="{{currentWord.exampleEn}}">
+              <view class="example-en">{{currentWord.exampleEn}}</view>
+              <view class="example-cn">{{currentWord.exampleCn}}</view>
+            </view>
+          </scroll-view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 掌握度按钮 -->
+    <view class="action-buttons" wx:if="{{isFlipped}}">
+      <view class="quality-btn btn-hard" bindtap="submitQuality" data-quality="1">
+        <text class="btn-icon">😵</text>
+        <text class="btn-label">不认识</text>
+      </view>
+      <view class="quality-btn btn-medium" bindtap="submitQuality" data-quality="3">
+        <text class="btn-icon">🤔</text>
+        <text class="btn-label">模糊</text>
+      </view>
+      <view class="quality-btn btn-easy" bindtap="submitQuality" data-quality="5">
+        <text class="btn-icon">😊</text>
+        <text class="btn-label">认识</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 完成 -->
+  <view class="empty-container" wx:if="{{!loading && wordList.length === 0}}">
+    <text class="done-text">{{doneText}}</text>
+    <van-button type="primary" bindtap="backHome">返回</van-button>
+  </view>
+</view>

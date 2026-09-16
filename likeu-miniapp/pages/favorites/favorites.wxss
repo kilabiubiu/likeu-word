@@ -1,0 +1,42 @@
+/* 我的收藏页样式 */
+
+.fav-list {
+  padding: 20rpx 30rpx;
+}
+
+.fav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card-bg);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+  gap: 20rpx;
+}
+
+.fav-item-left {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.fav-item-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fav-item-sub {
+  font-size: 24rpx;
+  color: var(--text-light);
+  margin-top: 4rpx;
+}
+
+.fav-item-meaning {
+  flex: 1;
+  text-align: right;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
