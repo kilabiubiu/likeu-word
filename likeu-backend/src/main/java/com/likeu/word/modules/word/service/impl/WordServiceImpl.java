@@ -113,23 +113,6 @@ public class WordServiceImpl implements WordService {
         return result;
     }
 
-    @Override
-    public List<WordEntity> getByRootId(Long rootId) {
-        List<WordRootEntity> wordRoots = wordRootMapper.selectList(
-                new LambdaQueryWrapper<WordRootEntity>()
-                        .eq(WordRootEntity::getRootId, rootId));
-
-        if (wordRoots.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Long> wordIds = wordRoots.stream()
-                .map(WordRootEntity::getWordId)
-                .collect(Collectors.toList());
-
-        return wordMapper.selectBatchIds(wordIds);
-    }
-
     private WordDetailVO.RootChip toChip(RootEntity root) {
         WordDetailVO.RootChip chip = new WordDetailVO.RootChip();
         chip.setId(root.getId());

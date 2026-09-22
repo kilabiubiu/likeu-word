@@ -70,5 +70,8 @@
   </view>
 
   <!-- 空状态 -->
-  <van-empty wx:elif="{{!loading && rootList.length === 0}}" description="暂无词根数据" />
+  <van-empty
+    wx:elif="{{!loading && rootList.length === 0}}"
+    description="{{needLogin ? '登录后即可浏览词根' : '暂无词根数据'}}"
+  />
 </view>

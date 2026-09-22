@@ -83,13 +83,6 @@ public class FavoriteServiceImpl implements FavoriteService {
     }
 
     @Override
-    public int countWordFav(Long userId) {
-        return userFavWordMapper.selectCount(
-                new LambdaQueryWrapper<UserFavWordEntity>()
-                        .eq(UserFavWordEntity::getUserId, userId)).intValue();
-    }
-
-    @Override
     public PageVO<WordEntity> listFavWords(Long userId, Integer page, Integer size) {
         // 先对收藏记录分页，再批量取单词，避免把全部收藏记录与单词都加载进内存
         Page<UserFavWordEntity> pageParam = new Page<>(
@@ -150,13 +143,6 @@ public class FavoriteServiceImpl implements FavoriteService {
                         .eq(UserFavRootEntity::getUserId, userId)
                         .eq(UserFavRootEntity::getRootId, rootId));
         return count > 0;
-    }
-
-    @Override
-    public int countRootFav(Long userId) {
-        return userFavRootMapper.selectCount(
-                new LambdaQueryWrapper<UserFavRootEntity>()
-                        .eq(UserFavRootEntity::getUserId, userId)).intValue();
     }
 
     @Override

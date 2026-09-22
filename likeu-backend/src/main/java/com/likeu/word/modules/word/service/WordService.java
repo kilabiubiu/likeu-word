@@ -25,9 +25,4 @@ public interface WordService {
      * 批量获取单词详情（含词根拆解），固定 3 次查询
      */
     List<WordDetailVO> getByIds(List<Long> wordIds);
-
-    /**
-     * 根据词根ID获取同源单词列表
-     */
-    List<WordEntity> getByRootId(Long rootId);
 }

@@ -19,12 +19,24 @@
     <view class="progress-header">
       <text class="progress-text">复习 {{currentIndex + 1}} / {{wordList.length}}</text>
       <view class="progress-bar">
-        <view class="progress-fill" style="width: {{(currentIndex + 1) / wordList.length * 100}}%"></view>
+        <view class="progress-fill" style="width: {{progressPercent}}%"></view>
       </view>
     </view>
 
     <!-- 单词卡片 (复用学习页布局) -->
     <view class="card-container">
+      <!-- 收藏入口 -->
+      <view class="card-toolbar">
+        <view class="fav-btn" bindtap="toggleWordFav">
+          <van-icon
+            name="{{isWordFav ? 'star' : 'star-o'}}"
+            size="40rpx"
+            color="{{isWordFav ? '#F5A623' : '#bbb'}}"
+          />
+          <text class="fav-text">{{isWordFav ? '已收藏' : '收藏'}}</text>
+        </view>
+      </view>
+
       <view
         class="word-card {{isFlipped ? 'flipped' : ''}}"
         bindtap="flipCard"

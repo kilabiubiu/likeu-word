@@ -36,6 +36,33 @@
   align-items: center;
 }
 
+/* 卡片工具条（收藏入口） */
+.card-toolbar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 12rpx;
+}
+
+.fav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 30rpx;
+  background: var(--card-bg);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+.fav-btn:active {
+  transform: scale(0.96);
+}
+
+.fav-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
 /* 单词卡片 - 3D翻转 */
 .word-card {
   width: 100%;

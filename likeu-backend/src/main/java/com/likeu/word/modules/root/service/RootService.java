@@ -27,11 +27,6 @@ public interface RootService {
     List<WordEntity> getWords(Long rootId);
 
     /**
-     * 查询是否已收藏
-     */
-    boolean isFavorite(Long userId, Long rootId);
-
-    /**
      * 增加热度（被查看一次+1）
      */
     void increaseHot(Long rootId);

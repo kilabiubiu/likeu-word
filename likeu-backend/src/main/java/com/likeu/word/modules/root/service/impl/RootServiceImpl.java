@@ -8,7 +8,6 @@ import com.likeu.word.common.util.RedisUtil;
 import com.likeu.word.mapper.RootMapper;
 import com.likeu.word.mapper.WordMapper;
 import com.likeu.word.mapper.WordRootMapper;
-import com.likeu.word.modules.favorite.service.FavoriteService;
 import com.likeu.word.modules.root.entity.RootEntity;
 import com.likeu.word.modules.root.service.RootService;
 import com.likeu.word.modules.word.entity.WordEntity;
@@ -49,9 +48,6 @@ public class RootServiceImpl implements RootService {
 
     @Resource
     private WordMapper wordMapper;
-
-    @Resource
-    private FavoriteService favoriteService;
 
     @Resource
     private RedisUtil redisUtil;
@@ -99,11 +95,6 @@ public class RootServiceImpl implements RootService {
 
         writeCache(cacheKey, words);
         return words;
-    }
-
-    @Override
-    public boolean isFavorite(Long userId, Long rootId) {
-        return favoriteService.isRootFav(userId, rootId);
     }
 
     @Override

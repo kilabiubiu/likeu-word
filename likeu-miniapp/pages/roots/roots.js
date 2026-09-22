@@ -11,7 +11,9 @@ Page({
     loading: true,
     loadingMore: false,
     hasMore: true,
-    page: 1
+    page: 1,
+    // 未登录时用于区分空态文案
+    needLogin: false
   },
 
   onLoad() {
@@ -34,8 +36,16 @@ Page({
    * @param {boolean} reset 是否从第一页重新加载
    */
   loadRoots(reset) {
+    // 未登录时不请求需要鉴权的接口，避免触发无意义的 401
+    if (!getApp().isLogin()) {
+      this.setData({
+        rootList: [], loading: false, loadingMore: false, hasMore: false, needLogin: true
+      });
+      return;
+    }
+
     const page = reset ? 1 : this.data.page + 1;
-    this.setData(reset ? { loading: true } : { loadingMore: true });
+    this.setData(reset ? { loading: true, needLogin: false } : { loadingMore: true });
 
     const params = { page, size: PAGE_SIZE };
     if (this.data.filterType > 0) {

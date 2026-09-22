@@ -35,8 +35,10 @@ Page({
 
   loadAll() {
     if (!getApp().isLogin()) {
+      // 一并复位 loadingMore，避免「加载更多」被切走时残留加载态
       this.setData({
         loading: false,
+        loadingMore: false,
         wordList: [], wordTotal: 0, wordHasMore: false,
         rootList: [], rootTotal: 0, rootHasMore: false
       });

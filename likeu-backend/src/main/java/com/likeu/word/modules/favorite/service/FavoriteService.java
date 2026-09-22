@@ -27,11 +27,6 @@ public interface FavoriteService {
     boolean isWordFav(Long userId, Long wordId);
 
     /**
-     * 获取收藏单词数
-     */
-    int countWordFav(Long userId);
-
-    /**
      * 分页获取收藏单词列表（按收藏时间倒序）
      */
     PageVO<WordEntity> listFavWords(Long userId, Integer page, Integer size);
@@ -52,11 +47,6 @@ public interface FavoriteService {
      * 是否已收藏词根
      */
     boolean isRootFav(Long userId, Long rootId);
-
-    /**
-     * 获取收藏词根数
-     */
-    int countRootFav(Long userId);
 
     /**
      * 分页获取收藏词根列表（按收藏时间倒序）

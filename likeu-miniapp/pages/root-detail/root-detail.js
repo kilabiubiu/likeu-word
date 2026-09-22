@@ -19,10 +19,15 @@ Page({
   loadRootDetail(rootId) {
     util.showLoading('加载中...');
 
+    // 未登录时跳过收藏状态请求，否则会触发 401 的全局提示与跳转
+    const favTask = getApp().isLogin()
+      ? request.get('/favorite/root/status', { rootId }).catch(() => false)
+      : Promise.resolve(false);
+
     Promise.all([
       request.get('/root/detail', { rootId }),
       request.get('/root/words', { rootId }),
-      request.get('/favorite/root/status', { rootId }).catch(() => false)
+      favTask
     ]).then(([root, words, favStatus]) => {
       this.setData({
         root,

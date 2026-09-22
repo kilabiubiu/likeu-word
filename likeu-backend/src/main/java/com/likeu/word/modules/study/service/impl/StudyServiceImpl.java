@@ -206,7 +206,7 @@ public class StudyServiceImpl implements StudyService {
         int totalDone = newCount + reviewCount;
         int progress = totalTarget > 0 ? Math.min(100, totalDone * 100 / totalTarget) : 0;
 
-        return new TodayStatsVO(newCount, reviewCount, dueCount, masteredCount, progress);
+        return new TodayStatsVO(newCount, reviewCount, dueCount, masteredCount, progress, newLimit);
     }
 
     // ==================== SM-2 核心算法 ====================

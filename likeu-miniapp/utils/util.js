@@ -31,17 +31,6 @@ function timeAgo(timestamp) {
 }
 
 /**
- * 防抖
- */
-function debounce(fn, delay = 300) {
-  let timer = null;
-  return function (...args) {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
-
-/**
  * 显示加载中
  */
 function showLoading(title = '加载中...') {
@@ -58,7 +47,6 @@ function hideLoading() {
 module.exports = {
   formatDate,
   timeAgo,
-  debounce,
   showLoading,
   hideLoading
 };

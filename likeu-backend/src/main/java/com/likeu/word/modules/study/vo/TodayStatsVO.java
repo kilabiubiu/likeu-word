@@ -26,4 +26,7 @@ public class TodayStatsVO {
 
     /** 学习进度百分比 */
     private Integer progress;
+
+    /** 每日新词上限（来源 t_user.daily_new），供前端展示，避免前端写死 */
+    private Integer dailyNewLimit;
 }

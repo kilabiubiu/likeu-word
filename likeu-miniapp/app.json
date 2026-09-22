@@ -47,16 +47,10 @@
     "van-cell-group": "@vant/weapp/cell-group/index",
     "van-icon": "@vant/weapp/icon/index",
     "van-tag": "@vant/weapp/tag/index",
-    "van-card": "@vant/weapp/card/index",
     "van-loading": "@vant/weapp/loading/index",
     "van-empty": "@vant/weapp/empty/index",
     "van-toast": "@vant/weapp/toast/index",
-    "van-dialog": "@vant/weapp/dialog/index",
-    "van-progress": "@vant/weapp/progress/index",
-    "van-nav-bar": "@vant/weapp/nav-bar/index",
-    "van-notice-bar": "@vant/weapp/notice-bar/index",
-    "van-popup": "@vant/weapp/popup/index",
-    "van-transition": "@vant/weapp/transition/index"
+    "van-progress": "@vant/weapp/progress/index"
   },
   "requiredBackgroundModes": [],
   "lazyCodeLoading": "requiredComponents"

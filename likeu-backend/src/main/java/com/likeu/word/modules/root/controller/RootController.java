@@ -50,12 +50,4 @@ public class RootController {
     public Result<List<WordEntity>> words(@RequestParam Long rootId) {
         return Result.success(rootService.getWords(rootId));
     }
-
-    /**
-     * 查询收藏状态
-     */
-    @GetMapping("/fav/status")
-    public Result<Boolean> favStatus(@RequestAttribute Long userId, @RequestParam Long rootId) {
-        return Result.success(rootService.isFavorite(userId, rootId));
-    }
 }

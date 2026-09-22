@@ -61,12 +61,19 @@ Page({
     if (!getApp().isLogin()) return;
 
     request.get('/study/stats/today')
-      .then(data => this.setData({ todayStats: data }))
+      .then(data => this.setData({
+        todayStats: data,
+        // 每日新词上限由后端返回，避免前端写死与后端不一致
+        dailyNewLimit: data.dailyNewLimit || this.data.dailyNewLimit
+      }))
       .catch(() => {});
   },
 
   // 加载词书信息
   loadBookInfo() {
+    // 未登录时不请求这些需要鉴权的接口，避免触发 401 提示
+    if (!getApp().isLogin()) return;
+
     request.get('/word-book/current')
       .then(data => this.setData({ currentBook: data }))
       .catch(() => {});

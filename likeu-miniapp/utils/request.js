@@ -1,7 +1,33 @@
 /**
  * 网络请求封装（自动携带token）
  */
-const BASE_URL = 'http://localhost:8080/api';
+const { BASE_URL } = require('./config');
+
+/**
+ * 401 处理去重标志：多个请求同时过期时，只提示并跳转一次
+ */
+let handling401 = false;
+
+/**
+ * 统一处理 401
+ *
+ * @param app 应用实例
+ * @param hadToken 本次请求是否携带了 token
+ */
+function handle401(app, hadToken) {
+  // 没有 token 说明只是尚未登录，不属于「登录过期」，不打扰用户（页面自己决定是否引导登录）
+  if (!hadToken || handling401) {
+    return;
+  }
+  handling401 = true;
+  wx.showToast({ title: '登录已过期', icon: 'none' });
+  app.clearLogin();
+  // index 是 tabBar 页面，必须用 switchTab
+  wx.switchTab({ url: '/pages/index/index' });
+  setTimeout(() => {
+    handling401 = false;
+  }, 1500);
+}
 
 /**
  * 将参数对象拼成 query string
@@ -23,6 +49,7 @@ function toQuery(params) {
 function request(url, method, data, options = {}) {
   const app = getApp();
   const token = app.globalData.token;
+  const hadToken = !!token;
 
   // asQuery: 把参数拼到 URL 上，用于后端用 @RequestParam 接收的 POST/DELETE 接口
   const finalUrl = options.asQuery ? BASE_URL + url + toQuery(data) : BASE_URL + url;
@@ -40,13 +67,8 @@ function request(url, method, data, options = {}) {
       timeout: options.timeout || 10000,
       success(res) {
         if (res.statusCode === 401) {
-          // token过期，跳转登录（由各页面处理）
-          wx.showToast({ title: '登录已过期', icon: 'none' });
-          app.clearLogin();
-          // 触发全局登录事件
-          // index 是 tabBar 页面，必须用 switchTab
-          wx.switchTab({ url: '/pages/index/index' });
-          reject({ code: 401, msg: '登录已过期' });
+          handle401(app, hadToken);
+          reject({ code: 401, msg: '未登录或登录已过期' });
           return;
         }
 
@@ -89,6 +111,5 @@ module.exports = {
   },
   delQuery(url, params, options) {
     return request(url, 'DELETE', params, Object.assign({}, options, { asQuery: true }));
-  },
-  BASE_URL
+  }
 };

@@ -7,6 +7,9 @@ Page({
     currentIndex: 0,
     currentWord: null,
     isFlipped: false,
+    isWordFav: false,
+    // 进度条百分比，由 js 计算，避免列表为空时 wxml 里出现 Infinity
+    progressPercent: 0,
     loading: true,
     // single: 从词根详情进入，只学指定单词；deck: 今日新词队列
     mode: 'deck',
@@ -41,6 +44,8 @@ Page({
           currentWord: word,
           loading: false
         });
+        this.updateProgress();
+        this.loadWordFavStatus(word.id);
       })
       .catch(() => {
         this.setData({ loading: false, wordList: [] });
@@ -62,6 +67,8 @@ Page({
         if (!words || words.length === 0) {
           wx.showToast({ title: '暂无新词', icon: 'none' });
         }
+        this.updateProgress();
+        this.loadWordFavStatus(this.data.currentWord && this.data.currentWord.id);
       })
       .catch(() => {
         this.setData({ loading: false });
@@ -93,8 +100,46 @@ Page({
       // 切换到下一个单词
       this.nextWord();
     }).catch(() => {
-      this.nextWord();
+      // 提交失败时停留在当前单词，允许用户重试（错误提示由 request 层统一给出）
     });
+  },
+
+  // 更新进度条百分比，列表为空时置 0
+  updateProgress() {
+    const { currentIndex, wordList } = this.data;
+    const total = wordList.length;
+    this.setData({
+      progressPercent: total > 0 ? Math.round((currentIndex + 1) * 100 / total) : 0
+    });
+  },
+
+  // 查询当前单词的收藏状态
+  loadWordFavStatus(wordId) {
+    if (!wordId || !getApp().isLogin()) {
+      this.setData({ isWordFav: false });
+      return;
+    }
+    request.get('/favorite/word/status', { wordId })
+      .then(isFav => this.setData({ isWordFav: !!isFav }))
+      .catch(() => this.setData({ isWordFav: false }));
+  },
+
+  // 收藏 / 取消收藏当前单词
+  toggleWordFav() {
+    if (!getApp().isLogin()) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+
+    const { currentWord, isWordFav } = this.data;
+    if (!currentWord || !currentWord.id) return;
+
+    request[isWordFav ? 'delQuery' : 'postQuery']('/favorite/word', { wordId: currentWord.id })
+      .then(() => {
+        this.setData({ isWordFav: !isWordFav });
+        wx.showToast({ title: isWordFav ? '已取消收藏' : '已收藏', icon: 'success' });
+      })
+      .catch(() => {});
   },
 
   // 下一个单词
@@ -111,11 +156,14 @@ Page({
           currentIndex: nextIndex,
           currentWord: wordList[nextIndex]
         });
+        this.updateProgress();
+        this.loadWordFavStatus(wordList[nextIndex].id);
       } else {
         this.setData({
           wordList: [],
           currentWord: null
         });
+        this.updateProgress();
         wx.showToast({
           title: this.data.mode === 'single' ? '已学完' : '今日新词学完！',
           icon: 'success'
