@@ -68,25 +68,16 @@ public class StudyServiceImpl implements StudyService {
         }
         Long bookId = user.getWordBookId();
 
-        // 2. 查询用户已学过的单词ID
-        List<Long> learnedWordIds = userWordMapper.selectList(
-                new LambdaQueryWrapper<UserWordEntity>()
-                        .eq(UserWordEntity::getUserId, userId)
-                        .select(UserWordEntity::getWordId))
-                .stream()
-                .map(UserWordEntity::getWordId)
-                .collect(Collectors.toList());
-
-        // 3. 查询词书中未学过的单词
+        // 2. 查询词书中未学过的单词
+        // 集合差交给数据库用 NOT EXISTS 完成：若先把已学 word_id 全量读进内存再拼 NOT IN，
+        // 已学上千词时会产生超长 IN 列表并放大内存，NOT EXISTS 只依赖唯一键即可判存
         LambdaQueryWrapper<WordEntity> wrapper = new LambdaQueryWrapper<WordEntity>()
                 .eq(WordEntity::getWordBookId, bookId)
+                .apply("NOT EXISTS (SELECT 1 FROM t_user_word uw "
+                        + "WHERE uw.user_id = {0} AND uw.word_id = t_word.id AND uw.deleted = 0)", userId)
                 .orderByAsc(WordEntity::getSortOrder);
 
-        if (!learnedWordIds.isEmpty()) {
-            wrapper.notIn(WordEntity::getId, learnedWordIds);
-        }
-
-        // 4. 限制每日新词上限（由 SQL LIMIT 限制，避免全量加载后再截断）
+        // 3. 限制每日新词上限（由 SQL LIMIT 限制，避免全量加载后再截断）
         int limit = user.getDailyNew() != null ? user.getDailyNew() : DEFAULT_NEW_LIMIT;
         Page<WordEntity> page = new Page<>(1, limit);
         page.setSearchCount(false);
@@ -95,7 +86,7 @@ public class StudyServiceImpl implements StudyService {
             return new ArrayList<>();
         }
 
-        // 5. 批量转换为VO（含词根拆解），避免逐个单词查询
+        // 4. 批量转换为VO（含词根拆解），避免逐个单词查询
         List<Long> wordIds = words.stream()
                 .map(WordEntity::getId)
                 .collect(Collectors.toList());

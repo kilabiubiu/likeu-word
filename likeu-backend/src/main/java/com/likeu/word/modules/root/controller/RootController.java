@@ -37,11 +37,10 @@ public class RootController {
      * 词根详情
      */
     @GetMapping("/detail")
-    public Result<RootEntity> detail(@RequestParam Long rootId, @RequestAttribute(required = false) Long userId) {
-        RootEntity root = rootService.detail(rootId);
-        // 查看一次增加热度
+    public Result<RootEntity> detail(@RequestParam Long rootId) {
+        // 先自增热度再查询，保证响应里的 hot 与库中一致（否则返回值恒比库中少 1）
         rootService.increaseHot(rootId);
-        return Result.success(root);
+        return Result.success(rootService.detail(rootId));
     }
 
     /**
