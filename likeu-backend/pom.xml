@@ -87,6 +87,19 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- 接口文档（OpenAPI 3 + Swagger UI），默认关闭，仅开发/联调环境开启 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-ui</artifactId>
+            <version>1.6.15</version>
+        </dependency>
+
+        <!-- 健康检查（/actuator/health） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Spring Boot Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

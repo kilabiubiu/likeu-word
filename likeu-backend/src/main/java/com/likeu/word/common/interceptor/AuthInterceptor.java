@@ -24,11 +24,17 @@ import java.util.List;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
-    /** 固定白名单URL（不需要登录即可访问） */
+    /**
+     * 固定白名单URL（不需要登录即可访问）
+     *
+     * <p>{@code /actuator/health} 供存活探针使用，只返回 UP/DOWN（`show-details=never`）；
+     * {@code /actuator/info} 未列入白名单，避免对外泄露构建信息。</p>
+     */
     private static final List<String> FIXED_WHITE_LIST = Arrays.asList(
             "/user/login",
             "/favicon.ico",
-            "/error"
+            "/error",
+            "/actuator/health"
     );
 
     /**

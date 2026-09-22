@@ -11,7 +11,6 @@ import com.likeu.word.modules.study.service.StudyService;
 import com.likeu.word.modules.study.vo.TodayStatsVO;
 import com.likeu.word.modules.user.entity.UserEntity;
 import com.likeu.word.modules.word.entity.WordEntity;
-import com.likeu.word.modules.word.entity.WordRootEntity;
 import com.likeu.word.modules.word.service.WordService;
 import com.likeu.word.modules.word.vo.WordDetailVO;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -212,12 +211,19 @@ public class StudyServiceImpl implements StudyService {
     // ==================== SM-2 核心算法 ====================
 
     /**
-     * SM-2间隔重复算法
+     * SM-2间隔重复算法（包级可见，便于单测直接覆盖各质量分支）
+     *
+     * <p>与标准 SM-2 存在三处有意偏离，属产品化调整且已作用于存量数据，勿按标准实现改回：</p>
+     * <ol>
+     *   <li>EF 上限压到 3.0（标准 SM-2 无上限），避免间隔随连续答对过快膨胀</li>
+     *   <li>q=1（不认识）当天重学：interval=0，到期时间设为当天 23:59:59；标准 SM-2 为 1 天后</li>
+     *   <li>interval 用 {@code Math.ceil} 向上取整；标准 SM-2 为四舍五入</li>
+     * </ol>
      *
      * @param record 学习记录（状态会被修改）
      * @param quality 掌握度：1-不认识 3-模糊 5-认识
      */
-    private void sm2Calculate(UserWordEntity record, int quality) {
+    void sm2Calculate(UserWordEntity record, int quality) {
         double ef = record.getEaseFactor() != null ? record.getEaseFactor() : 2.5;
         int reps = record.getRepetitions() != null ? record.getRepetitions() : 0;
         int interval = record.getIntervalDays() != null ? record.getIntervalDays() : 0;
@@ -238,9 +244,9 @@ public class StudyServiceImpl implements StudyService {
             }
             reps++;
         } else {
-            // 回答错误：重置间隔
+            // 答错：间隔归零重置
             reps = 0;
-            // 不认识(q=1)当天重学，模糊(q=3)1天后复习
+            // q=1（不认识）当天重学；q=2 次日重学（q>=3 走上面的答对分支）
             interval = (quality == 1) ? 0 : 1;
         }
 
@@ -248,6 +254,9 @@ public class StudyServiceImpl implements StudyService {
         double newEf = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
         // 限定EF范围 [1.3, 3.0]
         newEf = Math.max(1.3, Math.min(3.0, newEf));
+        // ease_factor 列为 DECIMAL(4,2)：显式定点写入，避免把 double 尾差（如 2.6000000000000005）
+        // 交给数据库隐式取整
+        newEf = BigDecimal.valueOf(newEf).setScale(2, RoundingMode.HALF_UP).doubleValue();
 
         // 计算下次复习时间
         Calendar cal = Calendar.getInstance();

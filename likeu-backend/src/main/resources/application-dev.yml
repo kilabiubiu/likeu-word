@@ -78,10 +78,25 @@ jwt:
 # ============== 业务配置 ==============
 likeu:
   auth:
-    # H2 控制台只在 dev 开启，因此仅 dev 把它加入免登录白名单
-    white-list: /h2-console
+    # H2 控制台只在 dev 开启，因此仅 dev 把它与接口文档一起加入免登录白名单
+    white-list: /h2-console,/v3/api-docs,/swagger-ui
   cache:
     root-ttl-minutes: 60
+
+# ============== 接口文档 ==============
+# 仅 dev 打开，便于本地联调时直接看接口
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# ============== 健康检查 ==============
+# dev 的 Redis 是内存模拟实现，未实现 INFO 命令（默认方法会自递归导致栈溢出），故关闭该指标
+management:
+  health:
+    redis:
+      enabled: false
 
 # ============== 日志 ==============
 logging:

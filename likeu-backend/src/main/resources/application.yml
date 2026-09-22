@@ -98,6 +98,26 @@ likeu:
     # 额外的免登录路径，多个用逗号分隔；仅开发调试用，生产保持为空
     white-list: ${AUTH_WHITE_LIST:}
 
+# ============== 接口文档（OpenAPI / Swagger UI）==============
+# 默认关闭：文档会暴露全部接口结构，生产环境不应开放；dev 已在 application-dev.yml 打开
+springdoc:
+  api-docs:
+    enabled: ${DOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${DOC_ENABLED:false}
+
+# ============== 健康检查 ==============
+management:
+  endpoints:
+    web:
+      exposure:
+        # 只暴露健康检查与构建信息，其余端点（env/beans 等）默认不开放
+        include: health,info
+  endpoint:
+    health:
+      # 不对外输出数据库/Redis 等细节，只返回 UP/DOWN
+      show-details: never
+
 # ============== 日志 ==============
 logging:
   level:
