@@ -1,10 +1,10 @@
 package com.likeu.word.modules.root.service.impl;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.likeu.word.common.PageVO;
-import com.likeu.word.common.util.RedisUtil;
+import com.likeu.word.common.util.CacheHelper;
 import com.likeu.word.mapper.RootMapper;
 import com.likeu.word.mapper.WordMapper;
 import com.likeu.word.mapper.WordRootMapper;
@@ -20,20 +20,20 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * 词根 Service 实现
  *
- * <p>词根属于低频变更的基础数据，列表与同源单词走 Redis 缓存；
- * 缓存在 hot 热度变更时立即失效，并以 TTL 作为兜底的一致性边界。</p>
+ * <p>列表走数据库真分页 + {@code idx_type_hot} 索引，不做缓存：热度随每次详情访问变化，
+ * 缓存列表既无法命中（筛选组合多）又需要频繁失效。</p>
+ *
+ * <p>同源单词属低频变更数据，按 rootId 走 Redis 缓存，TTL 作为一致性边界。</p>
  */
 @Slf4j
 @Service
 public class RootServiceImpl implements RootService {
 
-    private static final String CACHE_ROOT_LIST = "likeu:cache:root:list";
     private static final String CACHE_ROOT_WORDS = "likeu:cache:root:words:";
 
     /** 词根基础数据缓存时长（分钟），可通过配置覆盖 */
@@ -50,102 +50,65 @@ public class RootServiceImpl implements RootService {
     private WordMapper wordMapper;
 
     @Resource
-    private RedisUtil redisUtil;
+    private CacheHelper cacheHelper;
 
     @Override
     public PageVO<RootEntity> list(Integer type, String keyword, Integer page, Integer size) {
-        // 缓存整份词根列表，类型筛选与关键词搜索在内存完成，避免为每种筛选组合各存一份缓存
-        String kw = keyword == null ? "" : keyword.trim().toLowerCase();
-        List<RootEntity> filtered = loadAllRoots().stream()
-                .filter(r -> type == null || type <= 0 || type.equals(r.getType()))
-                .filter(r -> kw.isEmpty()
-                        || (r.getRoot() != null && r.getRoot().toLowerCase().contains(kw)))
-                .collect(Collectors.toList());
-        return PageVO.fromList(filtered, page, size);
+        long pageNum = PageVO.normalizePage(page);
+        long pageSize = PageVO.normalizeSize(size);
+
+        LambdaQueryWrapper<RootEntity> wrapper = new LambdaQueryWrapper<>();
+        // type <= 0 视为不筛选（前端「全部」传 0），与旧的内存过滤语义保持一致
+        if (type != null && type > 0) {
+            wrapper.eq(RootEntity::getType, type);
+        }
+        String kw = keyword == null ? "" : keyword.trim();
+        if (!kw.isEmpty()) {
+            // 词根文本均为小写，统一小写后匹配，保持旧逻辑「输入大小写不敏感」的行为
+            wrapper.like(RootEntity::getRoot, kw.toLowerCase());
+        }
+        wrapper.orderByDesc(RootEntity::getHot);
+
+        Page<RootEntity> result = rootMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return PageVO.of(result.getRecords(), result.getTotal(),
+                result.getCurrent(), result.getSize());
     }
 
     @Override
     public RootEntity detail(Long rootId) {
-        // 详情接口每次访问都会递增热度（写操作），缓存会被立刻置为落后状态，
-        // 因此详情不缓存，仅列表与同源单词缓存
+        // 详情接口每次访问都会递增热度（写操作），缓存会被立刻置为落后状态，因此详情不缓存
         return rootMapper.selectById(rootId);
     }
 
     @Override
     public List<WordEntity> getWords(Long rootId) {
-        String cacheKey = CACHE_ROOT_WORDS + rootId;
-        List<WordEntity> cached = readCache(cacheKey, WordEntity.class);
-        if (cached != null) {
-            return cached;
-        }
-
-        List<WordRootEntity> wordRoots = wordRootMapper.selectList(
-                new LambdaQueryWrapper<WordRootEntity>()
-                        .eq(WordRootEntity::getRootId, rootId));
-
-        List<WordEntity> words;
-        if (wordRoots.isEmpty()) {
-            words = new ArrayList<>();
-        } else {
-            List<Long> wordIds = wordRoots.stream()
-                    .map(WordRootEntity::getWordId)
-                    .collect(Collectors.toList());
-            words = wordMapper.selectBatchIds(wordIds);
-        }
-
-        writeCache(cacheKey, words);
-        return words;
+        return cacheHelper.getList(CACHE_ROOT_WORDS + rootId, WordEntity.class,
+                cacheTtlMinutes * 60, () -> queryWords(rootId));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void increaseHot(Long rootId) {
+        // 列表已改为数据库真分页且不缓存，热度变化无需再失效任何缓存
         rootMapper.update(null,
                 new LambdaUpdateWrapper<RootEntity>()
                         .setSql("hot = hot + 1")
                         .eq(RootEntity::getId, rootId));
-        // 热度已变化，列表缓存里的 hot 值随即过期，直接失效避免返回旧热度
-        try {
-            redisUtil.delete(CACHE_ROOT_LIST);
-        } catch (Exception e) {
-            // 缓存失效失败不影响热度写入，缓存 TTL 到期后会自然恢复一致
-            log.warn("词根列表缓存失效失败: rootId={}", rootId, e);
-        }
     }
 
     /**
-     * 读取全部词根，优先命中缓存
+     * 查询同源单词：一次关联查询 + 一次批量查单词，避免逐个单词查询
      */
-    private List<RootEntity> loadAllRoots() {
-        List<RootEntity> cached = readCache(CACHE_ROOT_LIST, RootEntity.class);
-        if (cached != null) {
-            return cached;
+    private List<WordEntity> queryWords(Long rootId) {
+        List<WordRootEntity> wordRoots = wordRootMapper.selectList(
+                new LambdaQueryWrapper<WordRootEntity>()
+                        .eq(WordRootEntity::getRootId, rootId));
+        if (wordRoots.isEmpty()) {
+            return new ArrayList<>();
         }
-
-        List<RootEntity> roots = rootMapper.selectList(
-                new LambdaQueryWrapper<RootEntity>().orderByDesc(RootEntity::getHot));
-        writeCache(CACHE_ROOT_LIST, roots);
-        return roots;
-    }
-
-    /**
-     * 读取列表缓存，未命中或反序列化失败时返回 null
-     */
-    private <T> List<T> readCache(String key, Class<T> elementType) {
-        String cached = redisUtil.get(key);
-        if (cached == null) {
-            return null;
-        }
-        try {
-            return JSONUtil.toList(cached, elementType);
-        } catch (Exception e) {
-            log.warn("词根缓存反序列化失败，将回源数据库: key={}", key, e);
-            redisUtil.delete(key);
-            return null;
-        }
-    }
-
-    private void writeCache(String key, List<?> value) {
-        redisUtil.set(key, JSONUtil.toJsonStr(value), cacheTtlMinutes, TimeUnit.MINUTES);
+        List<Long> wordIds = wordRoots.stream()
+                .map(WordRootEntity::getWordId)
+                .collect(Collectors.toList());
+        return wordMapper.selectBatchIds(wordIds);
     }
 }

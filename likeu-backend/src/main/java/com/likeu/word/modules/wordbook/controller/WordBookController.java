@@ -21,7 +21,10 @@ public class WordBookController {
     private WordBookService wordBookService;
 
     /**
-     * 获取词书列表
+     * 获取词书列表（不分页）
+     *
+     * <p>词书属极少量基础数据，前端「切换词书」需要一次性展示全部供选择，
+     * 因此不做分页；服务端限制最多返回 100 条，避免脏数据导致超大响应。</p>
      */
     @GetMapping("/list")
     public Result<List<WordBookEntity>> getList() {

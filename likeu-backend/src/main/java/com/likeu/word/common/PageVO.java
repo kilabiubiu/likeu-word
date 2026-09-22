@@ -41,20 +41,6 @@ public class PageVO<T> implements Serializable {
         return vo;
     }
 
-    /**
-     * 对已在内存中的列表做分页
-     *
-     * <p>适用于数据量小、且需要在内存中完成筛选/排序的场景（如词根列表、收藏列表）。</p>
-     */
-    public static <T> PageVO<T> fromList(List<T> all, Integer pageNum, Integer pageSize) {
-        List<T> source = all == null ? new ArrayList<>() : all;
-        long page = normalizePage(pageNum);
-        long size = normalizeSize(pageSize);
-        int from = (int) Math.min((page - 1) * size, source.size());
-        int to = (int) Math.min(from + size, source.size());
-        return of(new ArrayList<>(source.subList(from, to)), source.size(), page, size);
-    }
-
     /** 页码归一化：非法值回落到第 1 页 */
     public static long normalizePage(Integer page) {
         return page == null || page < 1 ? 1 : page;

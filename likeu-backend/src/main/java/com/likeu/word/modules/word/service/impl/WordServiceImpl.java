@@ -3,6 +3,7 @@ package com.likeu.word.modules.word.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.likeu.word.common.PageVO;
+import com.likeu.word.common.util.CacheHelper;
 import com.likeu.word.mapper.RootMapper;
 import com.likeu.word.mapper.WordMapper;
 import com.likeu.word.mapper.WordRootMapper;
@@ -11,6 +12,7 @@ import com.likeu.word.modules.word.entity.WordEntity;
 import com.likeu.word.modules.word.entity.WordRootEntity;
 import com.likeu.word.modules.word.service.WordService;
 import com.likeu.word.modules.word.vo.WordDetailVO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -28,6 +30,12 @@ import java.util.stream.Collectors;
 @Service
 public class WordServiceImpl implements WordService {
 
+    private static final String CACHE_WORD_DETAIL = "likeu:cache:word:detail:";
+
+    /** 单词详情缓存时长（分钟）：单词属低频变更的基础数据 */
+    @Value("${likeu.cache.word-ttl-minutes:120}")
+    private long wordTtlMinutes;
+
     @Resource
     private WordMapper wordMapper;
 
@@ -36,6 +44,9 @@ public class WordServiceImpl implements WordService {
 
     @Resource
     private RootMapper rootMapper;
+
+    @Resource
+    private CacheHelper cacheHelper;
 
     @Override
     public PageVO<WordEntity> getByBookId(Long bookId, Integer page, Integer size) {
@@ -54,6 +65,12 @@ public class WordServiceImpl implements WordService {
         if (wordId == null) {
             return null;
         }
+        // 按 wordId 缓存：学习/复习页会反复打开同一个单词
+        return cacheHelper.get(CACHE_WORD_DETAIL + wordId, WordDetailVO.class,
+                wordTtlMinutes * 60, () -> loadDetail(wordId));
+    }
+
+    private WordDetailVO loadDetail(Long wordId) {
         List<WordDetailVO> list = getByIds(Collections.singletonList(wordId));
         return list.isEmpty() ? null : list.get(0);
     }
