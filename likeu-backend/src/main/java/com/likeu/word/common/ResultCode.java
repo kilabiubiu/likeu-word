@@ -28,6 +28,11 @@ public enum ResultCode {
     // 导入错误 2xxx
     IMPORT_EMPTY(2001, "导入数据为空"),
     IMPORT_FORMAT_ERROR(2002, "导入文件格式错误"),
+
+    // 数据与中间件错误 3xxx
+    DATA_CONFLICT(3001, "数据已存在或违反唯一性约束"),
+    DATA_ERROR(3002, "数据保存失败，请稍后重试"),
+    SERVICE_UNAVAILABLE(3003, "服务暂时不可用，请稍后重试"),
     ;
 
     private final Integer code;

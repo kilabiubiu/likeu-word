@@ -4,6 +4,7 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.likeu.word.common.ResultCode;
 import com.likeu.word.common.exception.BusinessException;
 import com.likeu.word.common.util.JwtUtil;
 import com.likeu.word.common.util.RedisUtil;
@@ -79,7 +80,7 @@ public class UserServiceImpl implements UserService {
         String openid;
         if ("wx-test-appid".equals(appid)) {
             openid = "dev_openid_" + UUID.randomUUID().toString().substring(0, 8);
-            log.info("开发环境模拟登录，生成 openid: {}", openid);
+            log.info("开发环境模拟登录，生成 openid: {}", maskOpenid(openid));
         } else {
             // 1. 微信code换取openid
             openid = wxCode2Openid(dto.getCode());
@@ -97,7 +98,7 @@ public class UserServiceImpl implements UserService {
             user.setDailyNew(20);
             user.setDailyReview(50);
             userMapper.insert(user);
-            log.info("新用户注册: id={}, openid={}", user.getId(), openid);
+            log.info("新用户注册: id={}, openid={}", user.getId(), maskOpenid(openid));
         } else {
             // 更新用户信息
             if (dto.getNickname() != null) {
@@ -159,23 +160,45 @@ public class UserServiceImpl implements UserService {
 
     /**
      * 微信 code2Session 换取 openid
+     *
+     * <p>响应体可能包含 openid、session_key 等敏感字段，因此失败时只记录错误码与描述；
+     * 抛给上层的文案固定，不拼接微信原始响应或异常信息。</p>
      */
     private String wxCode2Openid(String code) {
         String url = String.format("%s?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
                 WX_CODE_URL, appid, secret, code);
+
+        String resp;
         try {
-            String resp = HttpUtil.get(url, 5000);
-            JSONObject json = JSONUtil.parseObj(resp);
-            String openid = json.getStr("openid");
-            if (openid == null) {
-                String errMsg = json.getStr("errmsg", "微信登录失败");
-                log.error("微信登录失败: {}", resp);
-                throw new BusinessException("微信登录失败: " + errMsg);
-            }
-            return openid;
+            resp = HttpUtil.get(url, 5000);
         } catch (Exception e) {
-            log.error("微信登录异常", e);
-            throw new BusinessException("微信登录失败: " + e.getMessage());
+            log.error("调用微信登录接口异常: code={}", code, e);
+            throw new BusinessException(ResultCode.WX_LOGIN_FAIL, "微信登录失败，请稍后重试");
         }
+
+        JSONObject json;
+        try {
+            json = JSONUtil.parseObj(resp);
+        } catch (Exception e) {
+            log.error("微信登录响应解析失败", e);
+            throw new BusinessException(ResultCode.WX_LOGIN_FAIL, "微信登录失败，请稍后重试");
+        }
+
+        String openid = json.getStr("openid");
+        if (openid == null) {
+            log.error("微信登录失败: errcode={}, errmsg={}", json.getInt("errcode"), json.getStr("errmsg"));
+            throw new BusinessException(ResultCode.WX_LOGIN_FAIL, "微信登录失败，请稍后重试");
+        }
+        return openid;
+    }
+
+    /**
+     * 掩码处理用户标识，只保留尾 4 位，避免 openid 明文进入日志
+     */
+    private static String maskOpenid(String openid) {
+        if (openid == null || openid.length() <= 4) {
+            return "****";
+        }
+        return "****" + openid.substring(openid.length() - 4);
     }
 }

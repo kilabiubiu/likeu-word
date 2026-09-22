@@ -62,17 +62,26 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# ============== 微信小程序配置（开发环境随便填） ==============
+# ============== 微信小程序配置（开发环境模拟登录，不调用微信接口） ==============
 wx:
   mini:
     appid: wx-test-appid
     secret: test-secret
 
 # ============== JWT 配置 ==============
+# dev 提供一个非示例值的默认密钥，保证免配置即可启动；其他环境必须通过 JWT_SECRET 注入
 jwt:
-  secret: your-jwt-secret-key-change-me
+  secret: ${JWT_SECRET:likeu-dev-jwt-secret-not-for-production}
   expire-seconds: 604800
   redis-prefix: "likeu:token:"
+
+# ============== 业务配置 ==============
+likeu:
+  auth:
+    # H2 控制台只在 dev 开启，因此仅 dev 把它加入免登录白名单
+    white-list: /h2-console
+  cache:
+    root-ttl-minutes: 60
 
 # ============== 日志 ==============
 logging:

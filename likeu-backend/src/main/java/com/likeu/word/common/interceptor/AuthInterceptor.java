@@ -5,11 +5,14 @@ import com.likeu.word.common.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,17 +24,20 @@ import java.util.List;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
-    /** 白名单URL（不需要登录即可访问） */
-    private static final List<String> WHITE_LIST = Arrays.asList(
+    /** 固定白名单URL（不需要登录即可访问） */
+    private static final List<String> FIXED_WHITE_LIST = Arrays.asList(
             "/user/login",
-            "/h2-console",
-            "/doc.html",
-            "/swagger-resources",
-            "/v3/api-docs",
-            "/webjars/",
             "/favicon.ico",
             "/error"
     );
+
+    /**
+     * 额外的免登录路径，逗号分隔。
+     * 仅用于开发调试（如 dev 的 /h2-console），生产必须保持为空，
+     * 否则等于把调试入口暴露给所有人。
+     */
+    @Value("${likeu.auth.white-list:}")
+    private String extraWhiteList;
 
     @Value("${jwt.redis-prefix}")
     private String redisPrefix;
@@ -42,13 +48,30 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Resource
     private RedisUtil redisUtil;
 
+    private List<String> whiteList;
+
+    @PostConstruct
+    void initWhiteList() {
+        List<String> paths = new ArrayList<>(FIXED_WHITE_LIST);
+        if (StringUtils.hasText(extraWhiteList)) {
+            for (String path : extraWhiteList.split(",")) {
+                String trimmed = path.trim();
+                if (!trimmed.isEmpty()) {
+                    paths.add(trimmed);
+                }
+            }
+        }
+        this.whiteList = paths;
+        log.info("鉴权白名单: {}", whiteList);
+    }
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
                              Object handler) throws Exception {
         String uri = request.getServletPath() != null ? request.getServletPath() : request.getRequestURI();
 
         // 白名单放行
-        for (String white : WHITE_LIST) {
+        for (String white : whiteList) {
             if (uri.startsWith(white)) {
                 return true;
             }

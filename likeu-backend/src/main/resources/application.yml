@@ -59,7 +59,9 @@ mybatis-plus:
   type-aliases-package: com.likeu.word.modules.*.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # 默认关闭 SQL 打印：StdOutImpl 会把 SQL 与参数直接写到 stdout，噪音大且有数据泄露风险
+    # dev profile 单独打开，其他环境需要排查 SQL 时改 com.likeu.word.mapper 的日志级别
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
   global-config:
     db-config:
       id-type: auto
@@ -68,14 +70,15 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 # ============== 微信小程序配置 ==============
+# 真实凭据通过环境变量注入，启动时由 StartupConfigValidator 校验非空且非示例值
 wx:
   mini:
-    appid: your-appid-here
-    secret: your-secret-here
+    appid: ${WX_MINI_APPID:}
+    secret: ${WX_MINI_SECRET:}
 
 # ============== JWT 配置 ==============
 jwt:
-  secret: your-jwt-secret-key-change-me
+  secret: ${JWT_SECRET:}
   expire-seconds: 604800
   redis-prefix: "likeu:token:"
 
@@ -84,9 +87,15 @@ likeu:
   cache:
     # 词根基础数据缓存时长（分钟）
     root-ttl-minutes: 60
+  cors:
+    # 允许跨域的来源白名单，多个用逗号分隔；留空表示不启用跨域（小程序请求不受同源策略约束）
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  auth:
+    # 额外的免登录路径，多个用逗号分隔；仅开发调试用，生产保持为空
+    white-list: ${AUTH_WHITE_LIST:}
 
 # ============== 日志 ==============
 logging:
   level:
-    com.likeu.word: debug
+    com.likeu.word: info
     org.springframework: info

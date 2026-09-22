@@ -16,6 +16,7 @@ import com.likeu.word.modules.word.entity.WordRootEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
@@ -106,13 +107,19 @@ public class RootServiceImpl implements RootService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void increaseHot(Long rootId) {
         rootMapper.update(null,
                 new LambdaUpdateWrapper<RootEntity>()
                         .setSql("hot = hot + 1")
                         .eq(RootEntity::getId, rootId));
         // 热度已变化，列表缓存里的 hot 值随即过期，直接失效避免返回旧热度
-        redisUtil.delete(CACHE_ROOT_LIST);
+        try {
+            redisUtil.delete(CACHE_ROOT_LIST);
+        } catch (Exception e) {
+            // 缓存失效失败不影响热度写入，缓存 TTL 到期后会自然恢复一致
+            log.warn("词根列表缓存失效失败: rootId={}", rootId, e);
+        }
     }
 
     /**
