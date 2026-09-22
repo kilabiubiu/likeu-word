@@ -97,6 +97,9 @@ likeu:
   auth:
     # 额外的免登录路径，多个用逗号分隔；仅开发调试用，生产保持为空
     white-list: ${AUTH_WHITE_LIST:}
+  admin:
+    # 管理员 openid 白名单，多个用逗号分隔；留空表示无人是管理员（/admin/** 对所有人关闭）
+    openids: ${ADMIN_OPENIDS:}
 
 # ============== 接口文档（OpenAPI / Swagger UI）==============
 # 默认关闭：文档会暴露全部接口结构，生产环境不应开放；dev 已在 application-dev.yml 打开
