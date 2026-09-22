@@ -14,6 +14,7 @@ import com.likeu.word.modules.root.service.RootService;
 import com.likeu.word.modules.word.entity.WordEntity;
 import com.likeu.word.modules.word.entity.WordRootEntity;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
  * 词根 Service 实现
  *
  * <p>词根属于低频变更的基础数据，列表与同源单词走 Redis 缓存；
- * 缓存以 TTL 作为一致性边界（hot 热度值最多滞后一个 TTL）。</p>
+ * 缓存在 hot 热度变更时立即失效，并以 TTL 作为兜底的一致性边界。</p>
  */
 @Slf4j
 @Service
@@ -35,8 +36,9 @@ public class RootServiceImpl implements RootService {
     private static final String CACHE_ROOT_LIST = "likeu:cache:root:list";
     private static final String CACHE_ROOT_WORDS = "likeu:cache:root:words:";
 
-    /** 词根基础数据缓存时长（分钟） */
-    private static final long CACHE_TTL_MINUTES = 60;
+    /** 词根基础数据缓存时长（分钟），可通过配置覆盖 */
+    @Value("${likeu.cache.root-ttl-minutes:60}")
+    private long cacheTtlMinutes;
 
     @Resource
     private RootMapper rootMapper;
@@ -109,6 +111,8 @@ public class RootServiceImpl implements RootService {
                 new LambdaUpdateWrapper<RootEntity>()
                         .setSql("hot = hot + 1")
                         .eq(RootEntity::getId, rootId));
+        // 热度已变化，列表缓存里的 hot 值随即过期，直接失效避免返回旧热度
+        redisUtil.delete(CACHE_ROOT_LIST);
     }
 
     /**
@@ -130,12 +134,12 @@ public class RootServiceImpl implements RootService {
      * 读取列表缓存，未命中或反序列化失败时返回 null
      */
     private <T> List<T> readCache(String key, Class<T> elementType) {
-        Object cached = redisUtil.get(key);
+        String cached = redisUtil.get(key);
         if (cached == null) {
             return null;
         }
         try {
-            return JSONUtil.toList(cached.toString(), elementType);
+            return JSONUtil.toList(cached, elementType);
         } catch (Exception e) {
             log.warn("词根缓存反序列化失败，将回源数据库: key={}", key, e);
             redisUtil.delete(key);
@@ -144,6 +148,6 @@ public class RootServiceImpl implements RootService {
     }
 
     private void writeCache(String key, List<?> value) {
-        redisUtil.set(key, JSONUtil.toJsonStr(value), CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        redisUtil.set(key, JSONUtil.toJsonStr(value), cacheTtlMinutes, TimeUnit.MINUTES);
     }
 }

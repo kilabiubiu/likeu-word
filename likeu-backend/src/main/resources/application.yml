@@ -8,24 +8,33 @@ spring:
     name: likeu-word
 
   # ============== MySQL ==============
+  # 连接信息支持环境变量覆盖，真实密码请放到 application-local.yml（已在 .gitignore 中）
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/likeu_word?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: your-db-password
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:likeu_word}?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:your-db-password}
+    hikari:
+      pool-name: LikeuHikariPool
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
 
   # ============== Redis ==============
   redis:
-    host: localhost
-    port: 6379
-    password:
-    database: 0
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DATABASE:0}
     timeout: 5000ms
     lettuce:
       pool:
         max-active: 16
         max-idle: 8
-        min-idle: 0
+        min-idle: ${REDIS_POOL_MIN_IDLE:2}
         max-wait: 3000ms
 
   # ============== 首次启动建表 / 演示数据 ==============
@@ -68,6 +77,12 @@ jwt:
   secret: your-jwt-secret-key-change-me
   expire-seconds: 604800
   redis-prefix: "likeu:token:"
+
+# ============== 业务配置 ==============
+likeu:
+  cache:
+    # 词根基础数据缓存时长（分钟）
+    root-ttl-minutes: 60
 
 # ============== 日志 ==============
 logging:

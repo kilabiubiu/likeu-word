@@ -52,10 +52,13 @@ public class FavoriteServiceImpl implements FavoriteService {
                         .eq(UserFavWordEntity::getUserId, userId)
                         .eq(UserFavWordEntity::getWordId, wordId));
         if (count == 0) {
-            UserFavWordEntity fav = new UserFavWordEntity();
-            fav.setUserId(userId);
-            fav.setWordId(wordId);
-            userFavWordMapper.insert(fav);
+            // 取消收藏是逻辑删除，唯一键 uk_user_fav_word 决定再次收藏只能复活旧行
+            if (userFavWordMapper.revive(userId, wordId) == 0) {
+                UserFavWordEntity fav = new UserFavWordEntity();
+                fav.setUserId(userId);
+                fav.setWordId(wordId);
+                userFavWordMapper.insert(fav);
+            }
             log.info("用户收藏单词: userId={}, wordId={}", userId, wordId);
         }
     }
@@ -94,6 +97,7 @@ public class FavoriteServiceImpl implements FavoriteService {
         Page<UserFavWordEntity> favPage = userFavWordMapper.selectPage(pageParam,
                 new LambdaQueryWrapper<UserFavWordEntity>()
                         .eq(UserFavWordEntity::getUserId, userId)
+                        .orderByDesc(UserFavWordEntity::getCreateTime)
                         .orderByDesc(UserFavWordEntity::getId));
 
         List<Long> wordIds = selectFavIds(favPage.getRecords(), UserFavWordEntity::getWordId);
@@ -118,10 +122,13 @@ public class FavoriteServiceImpl implements FavoriteService {
                         .eq(UserFavRootEntity::getUserId, userId)
                         .eq(UserFavRootEntity::getRootId, rootId));
         if (count == 0) {
-            UserFavRootEntity fav = new UserFavRootEntity();
-            fav.setUserId(userId);
-            fav.setRootId(rootId);
-            userFavRootMapper.insert(fav);
+            // 取消收藏是逻辑删除，唯一键 uk_user_root 决定再次收藏只能复活旧行
+            if (userFavRootMapper.revive(userId, rootId) == 0) {
+                UserFavRootEntity fav = new UserFavRootEntity();
+                fav.setUserId(userId);
+                fav.setRootId(rootId);
+                userFavRootMapper.insert(fav);
+            }
             log.info("用户收藏词根: userId={}, rootId={}", userId, rootId);
         }
     }
@@ -160,6 +167,7 @@ public class FavoriteServiceImpl implements FavoriteService {
         Page<UserFavRootEntity> favPage = userFavRootMapper.selectPage(pageParam,
                 new LambdaQueryWrapper<UserFavRootEntity>()
                         .eq(UserFavRootEntity::getUserId, userId)
+                        .orderByDesc(UserFavRootEntity::getCreateTime)
                         .orderByDesc(UserFavRootEntity::getId));
 
         List<Long> rootIds = selectFavIds(favPage.getRecords(), UserFavRootEntity::getRootId);

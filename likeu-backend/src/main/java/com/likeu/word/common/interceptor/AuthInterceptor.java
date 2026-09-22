@@ -4,7 +4,6 @@ import com.likeu.word.common.util.JwtUtil;
 import com.likeu.word.common.util.RedisUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -43,13 +42,6 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Resource
     private RedisUtil redisUtil;
 
-    @Resource
-    private Environment environment;
-
-    private boolean isDevProfile() {
-        return Arrays.asList(environment.getActiveProfiles()).contains("dev");
-    }
-
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
                              Object handler) throws Exception {
@@ -84,18 +76,15 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // 开发环境跳过 Redis token 校验（mock Redis 不支持过期）
-        if (!isDevProfile()) {
-            // 校验Redis中token是否一致（防止token被覆盖）
-            String redisKey = redisPrefix + userId;
-            Object cachedToken = redisUtil.get(redisKey);
-            if (cachedToken == null || !cachedToken.toString().equals(token)) {
-                log.warn("token已过期或已失效: userId={}", userId);
-                response.setStatus(401);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\":401,\"message\":\"登录已过期，请重新登录\"}");
-                return false;
-            }
+        // 校验Redis中token是否一致（防止token被覆盖/已登出）
+        String redisKey = redisPrefix + userId;
+        String cachedToken = redisUtil.get(redisKey);
+        if (cachedToken == null || !cachedToken.equals(token)) {
+            log.warn("token已过期或已失效: userId={}", userId);
+            response.setStatus(401);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":401,\"message\":\"登录已过期，请重新登录\"}");
+            return false;
         }
 
         // 将userId注入请求属性，Controller中通过@RequestAttribute获取

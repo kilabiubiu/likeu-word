@@ -21,4 +21,7 @@ public class UserFavRootEntity {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableLogic
+    private Integer deleted;
 }

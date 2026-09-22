@@ -23,4 +23,7 @@ public class WordRootEntity {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableLogic
+    private Integer deleted;
 }

@@ -114,7 +114,19 @@ public class StudyServiceImpl implements StudyService {
                         .eq(UserWordEntity::getUserId, userId)
                         .eq(UserWordEntity::getWordId, wordId));
 
+        // 是否存在有效记录决定本次算「学新词」还是「复习」；
+        // 重置进度后旧行被逻辑删除，此时重新学习仍按新词计入统计
         boolean isNew = (record == null);
+
+        if (record == null) {
+            // 记录可能因「重置进度」被逻辑删除，唯一键 uk_user_learn_word 决定只能复活旧行（同时清零 SM-2 状态）
+            if (userWordMapper.revive(userId, wordId) > 0) {
+                record = userWordMapper.selectOne(
+                        new LambdaQueryWrapper<UserWordEntity>()
+                                .eq(UserWordEntity::getUserId, userId)
+                                .eq(UserWordEntity::getWordId, wordId));
+            }
+        }
 
         if (record == null) {
             record = new UserWordEntity();
@@ -291,6 +303,16 @@ public class StudyServiceImpl implements StudyService {
                 new LambdaQueryWrapper<UserDailyEntity>()
                         .eq(UserDailyEntity::getUserId, userId)
                         .eq(UserDailyEntity::getStudyDate, today));
+
+        if (daily == null) {
+            // 当天统计可能因「重置进度」被逻辑删除，唯一键 uk_user_date 决定只能复活旧行（计数清零）
+            if (userDailyMapper.revive(userId, today) > 0) {
+                daily = userDailyMapper.selectOne(
+                        new LambdaQueryWrapper<UserDailyEntity>()
+                                .eq(UserDailyEntity::getUserId, userId)
+                                .eq(UserDailyEntity::getStudyDate, today));
+            }
+        }
 
         if (daily == null) {
             daily = new UserDailyEntity();
