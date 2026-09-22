@@ -15,6 +15,7 @@ spring:
     password:
 
   # 初始化脚本（Spring Boot 2.5+ 使用 spring.sql.init.*）
+  # dev 用 H2 内存库，每次启动都是空库，必须显式打开初始化
   sql:
     init:
       mode: always
