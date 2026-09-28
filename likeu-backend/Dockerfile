@@ -21,6 +21,9 @@ RUN apk add --no-cache tzdata \
 
 WORKDIR /app
 
+# 中文日志/字符集：Alpine 下 JVM 默认字符集是 ASCII，不加这行会让中文日志变成乱码
+ENV LANG=C.UTF-8
+
 # 从构建阶段拷贝 fat jar
 COPY --from=build /src/target/likeu-word.jar app.jar
 
@@ -32,4 +35,4 @@ EXPOSE 8080
 
 # 容器固定走 prod profile；所有敏感值由云托管环境变量注入
 # Spring 会依次读取：application.yml（基础）→ application-prod.yml（prod 覆盖）→ 环境变量（最高优先级）
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-Dfile.encoding=UTF-8", "-Dspring.profiles.active=prod", "-jar", "app.jar"]

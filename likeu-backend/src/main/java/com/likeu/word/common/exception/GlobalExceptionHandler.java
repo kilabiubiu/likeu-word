@@ -5,7 +5,6 @@ import com.likeu.word.common.ResultCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -108,15 +107,6 @@ public class GlobalExceptionHandler {
     public Result<Void> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         log.warn("数据完整性异常", e);
         return Result.fail(ResultCode.DATA_ERROR.getCode(), ResultCode.DATA_ERROR.getMessage());
-    }
-
-    /**
-     * Redis 不可用，如连接失败、超时
-     */
-    @ExceptionHandler(RedisConnectionFailureException.class)
-    public Result<Void> handleRedisConnectionFailure(RedisConnectionFailureException e) {
-        log.error("Redis 连接失败", e);
-        return Result.fail(ResultCode.SERVICE_UNAVAILABLE.getCode(), ResultCode.SERVICE_UNAVAILABLE.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

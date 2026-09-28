@@ -1,7 +1,7 @@
 package com.likeu.word.common.interceptor;
 
 import com.likeu.word.common.util.JwtUtil;
-import com.likeu.word.common.util.RedisUtil;
+import com.likeu.word.modules.user.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,12 +17,34 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * JWT 鉴权拦截器
- * 拦截除白名单外的所有请求，校验token并设置userId到请求属性
+ * 鉴权拦截器
+ *
+ * <p>支持两种身份来源，优先级从高到低：</p>
+ * <ol>
+ *   <li><b>云托管注入的 openid</b>：小程序通过 {@code wx.cloud.callContainer} 调用时，
+ *       微信网关会在请求头写入 {@value #WX_OPENID_HEADER}（openid）等信息，属于可信来源。
+ *       这条链路不需要 {@code wx.login}、不需要 code2Session，也不需要自建登录态。</li>
+ *   <li><b>无状态 JWT</b>：本地开发（wx.request 直连 localhost）或非 callContainer 客户端使用，
+ *       只校验签名与过期时间，不再依赖服务端存储。</li>
+ * </ol>
+ *
+ * <p>两者都不满足时按未登录处理（401）。校验通过后把 userId 写入请求属性，
+ * Controller 通过 {@code @RequestAttribute Long userId} 获取，管理员校验见 {@link AdminInterceptor}。</p>
  */
 @Slf4j
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
+
+    /**
+     * 云托管通过 callContainer 调用时注入的用户身份请求头。
+     *
+     * <p>注意：该请求头由微信网关在服务端注入，只有在<b>关闭公网访问</b>、
+     * 仅允许小程序/公众号内网调用时才可信；生产环境务必在「服务设置」中关闭公网访问。</p>
+     */
+    public static final String WX_OPENID_HEADER = "X-WX-OPENID";
+
+    /** 校验通过后写入请求属性的 userId 键名 */
+    public static final String USER_ID_ATTRIBUTE = "userId";
 
     /**
      * 固定白名单URL（不需要登录即可访问）
@@ -45,14 +67,11 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Value("${likeu.auth.white-list:}")
     private String extraWhiteList;
 
-    @Value("${jwt.redis-prefix}")
-    private String redisPrefix;
-
     @Resource
     private JwtUtil jwtUtil;
 
     @Resource
-    private RedisUtil redisUtil;
+    private UserService userService;
 
     private List<String> whiteList;
 
@@ -83,41 +102,44 @@ public class AuthInterceptor implements HandlerInterceptor {
             }
         }
 
-        // 获取token
+        // 通道一：云托管注入的 openid（可信）
+        String openid = request.getHeader(WX_OPENID_HEADER);
+        if (StringUtils.hasText(openid)) {
+            Long userId = userService.resolveUserIdByOpenid(openid.trim());
+            if (userId == null) {
+                log.error("openid 无法解析为用户: uri={}", uri);
+                reject(response, "用户初始化失败，请稍后重试");
+                return false;
+            }
+            request.setAttribute(USER_ID_ATTRIBUTE, userId);
+            return true;
+        }
+
+        // 通道二：无状态 JWT（本地开发 / 普通 HTTP 客户端）
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("请求缺少token: uri={}", uri);
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"未登录或登录已过期\"}");
+            log.warn("请求缺少身份信息（既无 {} 也无 token）: uri={}", WX_OPENID_HEADER, uri);
+            reject(response, "未登录或登录已过期");
             return false;
         }
 
-        String token = authHeader.substring(7);
-
-        // 解析JWT
-        Long userId = jwtUtil.getUserId(token);
+        Long userId = jwtUtil.getUserId(authHeader.substring(7));
         if (userId == null) {
-            log.warn("token无效: uri={}", uri);
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"Token无效\"}");
+            log.warn("token无效或已过期: uri={}", uri);
+            reject(response, "登录已过期，请重新登录");
             return false;
         }
 
-        // 校验Redis中token是否一致（防止token被覆盖/已登出）
-        String redisKey = redisPrefix + userId;
-        String cachedToken = redisUtil.get(redisKey);
-        if (cachedToken == null || !cachedToken.equals(token)) {
-            log.warn("token已过期或已失效: userId={}", userId);
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"登录已过期，请重新登录\"}");
-            return false;
-        }
-
-        // 将userId注入请求属性，Controller中通过@RequestAttribute获取
-        request.setAttribute("userId", userId);
+        request.setAttribute(USER_ID_ATTRIBUTE, userId);
         return true;
+    }
+
+    /**
+     * 鉴权类失败返回真实状态码（而非 200 + body code），便于网关/日志按状态码直接识别越权访问
+     */
+    private void reject(HttpServletResponse response, String message) throws Exception {
+        response.setStatus(401);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":401,\"message\":\"" + message + "\"}");
     }
 }

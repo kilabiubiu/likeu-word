@@ -7,7 +7,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.likeu.word.common.ResultCode;
 import com.likeu.word.common.exception.BusinessException;
 import com.likeu.word.common.util.JwtUtil;
-import com.likeu.word.common.util.RedisUtil;
 import com.likeu.word.mapper.UserDailyMapper;
 import com.likeu.word.mapper.UserFavRootMapper;
 import com.likeu.word.mapper.UserFavWordMapper;
@@ -26,13 +25,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 用户 Service 实现
+ *
+ * <p>身份来源有两类，优先使用云托管注入的 openid：</p>
+ * <ul>
+ *   <li>小程序经 {@code wx.cloud.callContainer} 调用 → 请求头携带 X-WX-OPENID，直接使用；</li>
+ *   <li>本地开发 / 普通 HTTP 客户端 → 用 wx.login 拿到的 code 走 code2Session 换取，
+ *       dev 环境（appid=wx-test-appid）直接生成模拟 openid，不调微信接口。</li>
+ * </ul>
+ *
+ * <p>登录态不再依赖 Redis：token 为无状态 JWT，服务端不保存；callContainer 链路下
+ * 其实每次请求都能拿到 openid，token 只是为本地调试与普通客户端保留的兼容通道。</p>
  */
 @Slf4j
 @Service
@@ -43,12 +52,6 @@ public class UserServiceImpl implements UserService {
 
     @Value("${wx.mini.secret}")
     private String secret;
-
-    @Value("${jwt.redis-prefix}")
-    private String redisPrefix;
-
-    @Value("${jwt.expire-seconds}")
-    private Long expireSeconds;
 
     @Resource
     private UserMapper userMapper;
@@ -68,54 +71,97 @@ public class UserServiceImpl implements UserService {
     @Resource
     private JwtUtil jwtUtil;
 
-    @Resource
-    private RedisUtil redisUtil;
-
     private static final String WX_CODE_URL = "https://api.weixin.qq.com/sns/jscode2session";
+
+    /** 开发模拟登录使用的 appid：命中时不调用微信接口 */
+    private static final String MOCK_APPID = "wx-test-appid";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public LoginVO login(LoginDTO dto) {
-        // 开发环境模拟登录（当appid是测试值时）
-        String openid;
-        if ("wx-test-appid".equals(appid)) {
-            openid = "dev_openid_" + UUID.randomUUID().toString().substring(0, 8);
-            log.info("开发环境模拟登录，生成 openid: {}", maskOpenid(openid));
-        } else {
-            // 1. 微信code换取openid
-            openid = wxCode2Openid(dto.getCode());
+    public LoginVO login(LoginDTO dto, String wxOpenid) {
+        // callContainer 链路的小程序可以只发一个空 body，这里统一兜底
+        LoginDTO req = dto == null ? new LoginDTO() : dto;
+        String openid = resolveOpenid(req, wxOpenid);
+
+        // 查找或创建用户，并同步最新的昵称/头像
+        UserEntity user = findOrCreateUser(openid, req.getNickname(), req.getAvatar(), true);
+
+        // 无状态 JWT：只做签名与过期校验，服务端不保存，因此无需 Redis
+        String token = jwtUtil.createToken(user.getId());
+        return new LoginVO(token, user.getId(), user.getNickname(), user.getAvatar());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long resolveUserIdByOpenid(String openid) {
+        if (!StringUtils.hasText(openid)) {
+            return null;
+        }
+        UserEntity user = findOrCreateUser(openid.trim(), null, null, false);
+        return user.getId();
+    }
+
+    /**
+     * 确定本次请求的 openid：云托管注入的优先，其次 code2Session，dev 环境走模拟
+     */
+    private String resolveOpenid(LoginDTO dto, String wxOpenid) {
+        if (StringUtils.hasText(wxOpenid)) {
+            return wxOpenid.trim();
         }
 
-        // 2. 查找或创建用户
+        String code = dto == null ? null : dto.getCode();
+        if (!StringUtils.hasText(code)) {
+            // 正常链路不会走到这里：callContainer 一定带 openid；本地调试一定带 code
+            throw new BusinessException(ResultCode.PARAM_ERROR, "缺少登录凭证：请携带 code 或经小程序云托管调用");
+        }
+
+        if (MOCK_APPID.equals(appid)) {
+            String mockOpenid = "dev_openid_" + UUID.randomUUID().toString().substring(0, 8);
+            log.info("开发环境模拟登录，生成 openid: {}", maskOpenid(mockOpenid));
+            return mockOpenid;
+        }
+        return wxCode2Openid(code);
+    }
+
+    /**
+     * 按 openid 查找用户，不存在则创建
+     *
+     * @param syncProfile 是否用传入的昵称/头像更新已有用户（登录时更新，鉴权解析时不做写入）
+     */
+    private UserEntity findOrCreateUser(String openid, String nickname, String avatar, boolean syncProfile) {
         UserEntity user = userMapper.selectOne(
                 new LambdaQueryWrapper<UserEntity>().eq(UserEntity::getOpenid, openid));
+
         if (user == null) {
             user = new UserEntity();
             user.setOpenid(openid);
-            user.setNickname(dto.getNickname() != null ? dto.getNickname() : "测试用户");
-            user.setAvatar(dto.getAvatar() != null ? dto.getAvatar() : "");
+            user.setNickname(StringUtils.hasText(nickname) ? nickname : "微信用户");
+            user.setAvatar(avatar != null ? avatar : "");
             user.setWordBookId(1L); // 默认绑定第一本词书
             user.setDailyNew(20);
             user.setDailyReview(50);
             userMapper.insert(user);
             log.info("新用户注册: id={}, openid={}", user.getId(), maskOpenid(openid));
-        } else {
-            // 更新用户信息
-            if (dto.getNickname() != null) {
-                user.setNickname(dto.getNickname());
-            }
-            if (dto.getAvatar() != null) {
-                user.setAvatar(dto.getAvatar());
-            }
-            userMapper.updateById(user);
+            return user;
         }
 
-        // 3. 生成JWT token，存入Redis
-        String token = jwtUtil.createToken(user.getId());
-        String redisKey = redisPrefix + user.getId();
-        redisUtil.set(redisKey, token, expireSeconds, TimeUnit.SECONDS);
+        if (!syncProfile) {
+            return user;
+        }
 
-        return new LoginVO(token, user.getId(), user.getNickname(), user.getAvatar());
+        boolean changed = false;
+        if (StringUtils.hasText(nickname) && !nickname.equals(user.getNickname())) {
+            user.setNickname(nickname);
+            changed = true;
+        }
+        if (StringUtils.hasText(avatar) && !avatar.equals(user.getAvatar())) {
+            user.setAvatar(avatar);
+            changed = true;
+        }
+        if (changed) {
+            userMapper.updateById(user);
+        }
+        return user;
     }
 
     @Override
@@ -163,6 +209,9 @@ public class UserServiceImpl implements UserService {
      *
      * <p>响应体可能包含 openid、session_key 等敏感字段，因此失败时只记录错误码与描述；
      * 抛给上层的文案固定，不拼接微信原始响应或异常信息。</p>
+     *
+     * <p>仅在非 callContainer 链路（本地开发、普通 HTTP 客户端）使用，
+     * 需要容器具备公网出网能力；云托管注入 openid 的链路完全不依赖该接口。</p>
      */
     private String wxCode2Openid(String code) {
         String url = String.format("%s?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
@@ -172,7 +221,7 @@ public class UserServiceImpl implements UserService {
         try {
             resp = HttpUtil.get(url, 5000);
         } catch (Exception e) {
-            log.error("调用微信登录接口异常: code={}", code, e);
+            log.error("调用微信登录接口异常", e);
             throw new BusinessException(ResultCode.WX_LOGIN_FAIL, "微信登录失败，请稍后重试");
         }
 

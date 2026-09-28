@@ -7,10 +7,12 @@ spring:
     name: likeu-word
   profiles:
     active: prod
-  # prod 绝不自动初始化 schema 或灌入演示数据
+  # prod 默认绝不自动初始化 schema 或灌入演示数据；
+  # 首次部署需要建表时，临时把环境变量 DB_INIT_MODE 设为 always 发布一次，
+  # 建表+演示数据完成后**务必改回 never（或删掉该变量）再发布一次**。
   sql:
     init:
-      mode: never
+      mode: ${DB_INIT_MODE:never}
 
 # ============== MyBatis-Plus ==============
 mybatis-plus:

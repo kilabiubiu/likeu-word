@@ -23,28 +23,19 @@ Page({
     }
   },
 
+  // 登录：兼顾云托管（openid 直传）与本地调试（code2Session），统一走 app.login()
   handleLogin() {
     const app = getApp();
-    wx.login({
-      success: (res) => {
-        if (res.code) {
-          util.showLoading('登录中...');
-          request.post('/user/login', { code: res.code })
-            .then(data => {
-              app.setToken(data.token, data.userId, {
-                nickName: data.nickname,
-                avatarUrl: data.avatar
-              });
-              this.setData({
-                userInfo: app.globalData.userInfo
-              });
-              this.loadStats();
-            })
-            .catch(() => {})
-            .finally(() => util.hideLoading());
-        }
-      }
-    });
+    util.showLoading('登录中...');
+    app.login()
+      .then(() => {
+        this.setData({
+          userInfo: app.globalData.userInfo
+        });
+        this.loadStats();
+      })
+      .catch(() => {})
+      .finally(() => util.hideLoading());
   },
 
   loadStats() {

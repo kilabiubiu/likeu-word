@@ -28,19 +28,8 @@ spring:
       enabled: true
       path: /h2-console
 
-  # ============== 禁用 Redis（开发环境用内存模拟） ==============
-  redis:
-    host: localhost
-    port: 6379
-    password:
-    database: 0
-    timeout: 5000ms
-    lettuce:
-      pool:
-        max-active: 0
-        max-idle: 0
-        min-idle: 0
-        max-wait: -1ms
+  # ============== 缓存 ==============
+  # dev 使用进程内 TTL 缓存，无需安装 Redis
 
   # ============== 文件上传 ==============
   servlet:
@@ -73,7 +62,6 @@ wx:
 jwt:
   secret: ${JWT_SECRET:likeu-dev-jwt-secret-not-for-production}
   expire-seconds: 604800
-  redis-prefix: "likeu:token:"
 
 # ============== 业务配置 ==============
 likeu:
@@ -92,11 +80,7 @@ springdoc:
     enabled: true
 
 # ============== 健康检查 ==============
-# dev 的 Redis 是内存模拟实现，未实现 INFO 命令（默认方法会自递归导致栈溢出），故关闭该指标
-management:
-  health:
-    redis:
-      enabled: false
+# 无外部中间件依赖，默认指标即可
 
 # ============== 日志 ==============
 logging:

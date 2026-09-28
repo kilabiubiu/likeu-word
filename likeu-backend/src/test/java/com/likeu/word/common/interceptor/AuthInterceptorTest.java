@@ -1,7 +1,7 @@
 package com.likeu.word.common.interceptor;
 
 import com.likeu.word.common.util.JwtUtil;
-import com.likeu.word.common.util.RedisUtil;
+import com.likeu.word.modules.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 鉴权拦截器单测：白名单、缺失/非法/失效 token、放行后注入 userId
+ * 鉴权拦截器单测：白名单、云托管 openid 通道、无状态 token 通道、缺身份拒绝
  */
 class AuthInterceptorTest {
 
@@ -24,18 +24,17 @@ class AuthInterceptorTest {
 
     private JwtUtil jwtUtil;
 
-    private RedisUtil redisUtil;
+    private UserService userService;
 
     private AuthInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         jwtUtil = mock(JwtUtil.class);
-        redisUtil = mock(RedisUtil.class);
+        userService = mock(UserService.class);
         interceptor = new AuthInterceptor();
         ReflectionTestUtils.setField(interceptor, "jwtUtil", jwtUtil);
-        ReflectionTestUtils.setField(interceptor, "redisUtil", redisUtil);
-        ReflectionTestUtils.setField(interceptor, "redisPrefix", "likeu:token:");
+        ReflectionTestUtils.setField(interceptor, "userService", userService);
         ReflectionTestUtils.setField(interceptor, "extraWhiteList", "/h2-console, /v3/api-docs");
         interceptor.initWhiteList();
     }
@@ -49,8 +48,15 @@ class AuthInterceptorTest {
         return request;
     }
 
+    private MockHttpServletRequest openidRequest(String servletPath, String openid) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath(servletPath);
+        request.addHeader(AuthInterceptor.WX_OPENID_HEADER, openid);
+        return request;
+    }
+
     @Test
-    @DisplayName("固定白名单（/user/login）无 token 直接放行")
+    @DisplayName("固定白名单（/user/login）无身份直接放行")
     void fixedWhiteListIsAllowed() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -76,13 +82,44 @@ class AuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("缺少 Authorization 头 -> 401 未登录")
-    void missingTokenIsRejected() throws Exception {
+    @DisplayName("既无 openid 也无 token -> 401 未登录")
+    void missingIdentityIsRejected() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         assertFalse(interceptor.preHandle(request("/study/new-words", null), response, new Object()));
         assertEquals(401, response.getStatus());
         assertTrue(response.getContentAsString().contains("未登录或登录已过期"));
+    }
+
+    @Test
+    @DisplayName("云托管注入 openid -> 自动解析用户并放行")
+    void wxOpenidHeaderIsTrusted() throws Exception {
+        when(userService.resolveUserIdByOpenid("o-abc")).thenReturn(7L);
+        MockHttpServletRequest request = openidRequest("/study/new-words", "o-abc");
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        assertEquals(7L, request.getAttribute("userId"));
+    }
+
+    @Test
+    @DisplayName("openid 无法解析为用户 -> 401，不放行")
+    void unresolvableOpenidIsRejected() throws Exception {
+        when(userService.resolveUserIdByOpenid("o-abc")).thenReturn(null);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(openidRequest("/study/new-words", "o-abc"), response, new Object()));
+        assertEquals(401, response.getStatus());
+    }
+
+    @Test
+    @DisplayName("openid 通道优先于 token 通道")
+    void openidTakesPrecedenceOverToken() throws Exception {
+        when(userService.resolveUserIdByOpenid("o-abc")).thenReturn(9L);
+        MockHttpServletRequest request = openidRequest("/study/new-words", "o-abc");
+        request.addHeader("Authorization", "Bearer bad-token");
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        assertEquals(9L, request.getAttribute("userId"));
     }
 
     @Test
@@ -95,44 +132,20 @@ class AuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("token 签名非法 -> 401 Token无效")
+    @DisplayName("token 签名非法或已过期 -> 401")
     void invalidTokenIsRejected() throws Exception {
         when(jwtUtil.getUserId("bad-token")).thenReturn(null);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         assertFalse(interceptor.preHandle(request("/study/new-words", "Bearer bad-token"), response, new Object()));
         assertEquals(401, response.getStatus());
-        assertTrue(response.getContentAsString().contains("Token无效"));
-    }
-
-    @Test
-    @DisplayName("token 未在 Redis 中（已登出或过期）-> 401")
-    void tokenAbsentInRedisIsRejected() throws Exception {
-        when(jwtUtil.getUserId(TOKEN)).thenReturn(7L);
-        when(redisUtil.get("likeu:token:7")).thenReturn(null);
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        assertFalse(interceptor.preHandle(request("/study/new-words", "Bearer " + TOKEN), response, new Object()));
-        assertEquals(401, response.getStatus());
         assertTrue(response.getContentAsString().contains("登录已过期"));
     }
 
     @Test
-    @DisplayName("Redis 中 token 与请求不一致（已被新登录覆盖）-> 401")
-    void tokenMismatchIsRejected() throws Exception {
-        when(jwtUtil.getUserId(TOKEN)).thenReturn(7L);
-        when(redisUtil.get("likeu:token:7")).thenReturn("another-token");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-
-        assertFalse(interceptor.preHandle(request("/study/new-words", "Bearer " + TOKEN), response, new Object()));
-        assertEquals(401, response.getStatus());
-    }
-
-    @Test
-    @DisplayName("校验通过时放行并注入 userId")
+    @DisplayName("token 有效 -> 放行并注入 userId")
     void validTokenInjectsUserId() throws Exception {
         when(jwtUtil.getUserId(TOKEN)).thenReturn(7L);
-        when(redisUtil.get("likeu:token:7")).thenReturn(TOKEN);
         MockHttpServletRequest request = request("/study/new-words", "Bearer " + TOKEN);
 
         assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));

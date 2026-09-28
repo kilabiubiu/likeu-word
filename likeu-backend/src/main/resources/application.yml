@@ -22,20 +22,16 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
       connection-test-query: SELECT 1
+      # 启动阶段不要求数据库立即可连：云托管 MySQL 是 Serverless，闲置会自动暂停，
+      # 暂停期间的首次连接可能返回 "CynosDB serverless instance is resuming"，若在启动时
+      # 强制预建连接会导致容器起不来（表现为部署失败）。设为 -1 让应用先起来，
+      # 连接由首次请求触发并在后台重试；如需部署期 fail-fast，把 DB_INIT_FAIL_TIMEOUT 设为 1。
+      initialization-fail-timeout: ${DB_INIT_FAIL_TIMEOUT:-1}
 
-  # ============== Redis ==============
-  redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: ${REDIS_DATABASE:0}
-    timeout: 5000ms
-    lettuce:
-      pool:
-        max-active: 16
-        max-idle: 8
-        min-idle: ${REDIS_POOL_MIN_IDLE:2}
-        max-wait: 3000ms
+  # ============== 缓存 ==============
+  # 云托管不支持部署 Redis 等有状态服务，因此缓存与登录态均不依赖外部中间件：
+  # 基础数据缓存走进程内 TTL 缓存（见 CacheHelper），登录态走无状态 JWT /
+  # 云托管注入的 X-WX-OPENID 请求头。
 
   # ============== 首次启动建表 / 演示数据 ==============
   # 默认关闭：生产环境重启不应自动建表或重复灌入演示数据，需要初始化时显式设置 DB_INIT_MODE=always
@@ -44,6 +40,9 @@ spring:
   sql:
     init:
       mode: ${DB_INIT_MODE:never}
+      # 必须显式指定 UTF-8：脚本含中文，不指定会按平台默认字符集读取
+      # （Windows 是 GBK、Alpine 容器是 ASCII），导致词库入库即乱码
+      encoding: UTF-8
       schema-locations: classpath:data/schema.sql
       data-locations: classpath:data/init_demo_data.sql
 
@@ -77,10 +76,10 @@ wx:
     secret: ${WX_MINI_SECRET:}
 
 # ============== JWT 配置 ==============
+# 无状态鉴权：token 只做签名与过期校验，不再依赖服务端存储
 jwt:
   secret: ${JWT_SECRET:}
   expire-seconds: 604800
-  redis-prefix: "likeu:token:"
 
 # ============== 业务配置 ==============
 likeu:

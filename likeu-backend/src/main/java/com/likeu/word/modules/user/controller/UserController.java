@@ -1,6 +1,7 @@
 package com.likeu.word.modules.user.controller;
 
 import com.likeu.word.common.Result;
+import com.likeu.word.common.interceptor.AuthInterceptor;
 import com.likeu.word.modules.user.dto.LoginDTO;
 import com.likeu.word.modules.user.service.UserService;
 import com.likeu.word.modules.user.vo.LoginVO;
@@ -11,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
-import javax.validation.Valid;
 
 /**
  * 用户 Controller
@@ -26,12 +26,17 @@ public class UserController {
     private UserService userService;
 
     /**
-     * 微信小程序登录
+     * 登录（首次调用即注册）
+     *
+     * <p>免登录接口。经云托管 callContainer 调用时，请求头带有微信网关注入的 openid，
+     * 直接用它完成注册/登录；本地开发走 wx.login 的 code + code2Session。</p>
      */
-    @Operation(summary = "微信小程序登录", description = "免登录接口，返回 token 与 userId")
+    @Operation(summary = "登录/注册", description = "免登录接口，返回 token 与 userId；callContainer 链路无需传 code")
     @PostMapping("/login")
-    public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
-        LoginVO vo = userService.login(dto);
+    public Result<LoginVO> login(@RequestBody(required = false) LoginDTO dto,
+                                 @RequestHeader(value = AuthInterceptor.WX_OPENID_HEADER, required = false)
+                                 String wxOpenid) {
+        LoginVO vo = userService.login(dto, wxOpenid);
         log.info("用户登录成功: userId={}", vo.getUserId());
         return Result.success(vo);
     }
