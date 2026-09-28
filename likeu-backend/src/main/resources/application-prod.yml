@@ -1,0 +1,54 @@
+server:
+  # 云托管平台会自动把对外 443/80 路由到容器的服务端口
+  port: 8080
+
+spring:
+  application:
+    name: likeu-word
+  profiles:
+    active: prod
+  # prod 绝不自动初始化 schema 或灌入演示数据
+  sql:
+    init:
+      mode: never
+
+# ============== MyBatis-Plus ==============
+mybatis-plus:
+  configuration:
+    # 生产关闭 SQL 打印，避免泄露数据和日志噪音
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+# ============== 微信小程序 ==============
+# 由云托管环境变量注入 WX_MINI_APPID / WX_MINI_SECRET
+
+# ============== JWT ==============
+# 由云托管环境变量注入 JWT_SECRET
+
+# ============== 业务配置 ==============
+likeu:
+  cors:
+    # 小程序请求不受同源策略约束，保持为空即可；如为 H5 管理后台加跨域，由 CORS_ALLOWED_ORIGINS 注入
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  cache:
+    root-ttl-minutes: 60
+    word-ttl-minutes: 120
+    wordbook-ttl-minutes: 1440
+  auth:
+    # 生产绝不开启额外的免登录路径
+    white-list:
+  admin:
+    # 管理员白名单由 ADMIN_OPENIDS 注入；留空 = 全部拒绝
+
+# ============== 接口文档 ==============
+# 生产关闭，避免暴露接口结构
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# ============== 日志 ==============
+logging:
+  level:
+    com.likeu.word: info
+    org.springframework: warn
