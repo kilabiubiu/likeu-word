@@ -28,6 +28,10 @@ settings-nomirror.xml
 # 微信开发者工具：项目私有配置（个人设置，不共享）
 project.private.config.json
 
+# 根目录这份 project.config.json 是在仓库根打开开发者工具留下的残留：
+# 根目录没有 app.json，用它打开项目编译不了。小程序项目请用 likeu-miniapp/ 目录打开。
+/project.config.json
+
 # ===================== 操作系统 =====================
 .DS_Store
 Thumbs.db
