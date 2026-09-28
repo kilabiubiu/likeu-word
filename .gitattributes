@@ -1,0 +1,7 @@
+# Dockerfile 必须保持 LF：Windows 上 git 的 core.autocrlf=true 会把换行替换成 CRLF，
+# 而 Dockerfile 里用反斜杠续行的 RUN 指令遇到 CRLF 可能被解析失败（云托管构建会直接失败）。
+Dockerfile text eol=lf
+*.sh text eol=lf
+
+# 其余文件交给 git 默认策略处理
+* text=auto
